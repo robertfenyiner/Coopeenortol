@@ -1,10 +1,7 @@
-// ============================================================
-// CoopManager - API Helpers
-// ============================================================
-
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
 
 export function successResponse<T>(data: T, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -57,6 +54,16 @@ export function handleApiError(error: unknown) {
   }
   if (error instanceof AuthError) {
     return errorResponse(error.message, error.message === 'No autenticado' ? 401 : 403);
+  }
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    console.error('[Prisma Error]', error.code, error.message);
+    if (error.code === 'P2002') {
+      return errorResponse('Registro duplicado: ya existe un recurso con esos datos', 409);
+    }
+    if (error.code === 'P2025') {
+      return errorResponse('Recurso no encontrado', 404);
+    }
+    return errorResponse('Error de base de datos', 500);
   }
   if (error instanceof Error) {
     return errorResponse(error.message, 400);

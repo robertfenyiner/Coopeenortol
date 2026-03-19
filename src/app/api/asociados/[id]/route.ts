@@ -3,7 +3,7 @@
 // ============================================================
 
 import { NextRequest } from 'next/server';
-import { getAssociateById, updateAssociate, changeAssociateStatus } from '@/lib/services/associate.service';
+import { getAssociateById, updateAssociate, changeAssociateStatus, deleteAssociate } from '@/lib/services/associate.service';
 import { updateAssociateSchema, changeAssociateStatusSchema } from '@/lib/validations/schemas';
 import { successResponse, errorResponse, handleApiError, requirePermission } from '@/lib/api-helpers';
 
@@ -54,6 +54,21 @@ export async function PATCH(
     const validated = changeAssociateStatusSchema.parse(body);
     const updated = await changeAssociateStatus(id, validated.status, validated.reason, user.id);
     return successResponse(updated);
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+// DELETE: Eliminar asociado (cascade)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await requirePermission('associates.edit');
+    const { id } = await params;
+    await deleteAssociate(id, user.id);
+    return successResponse({ deleted: true });
   } catch (error) {
     return handleApiError(error);
   }

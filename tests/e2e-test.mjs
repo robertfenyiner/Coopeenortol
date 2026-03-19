@@ -27,6 +27,24 @@ function assert(condition, msg) {
   console.log(`  ✅ ${msg}`);
 }
 
+// Limpieza de datos de pruebas anteriores
+async function cleanup() {
+  console.log('🧹 Limpiando datos de pruebas anteriores...');
+  // Eliminar asociados de prueba (cascade elimina contributions, credits, etc.)
+  for (const doc of ['1098765432', '2098765433']) {
+    const res = await req('GET', `/api/asociados?search=${doc}&page=1&pageSize=10`);
+    if (res.data?.success && res.data?.data?.data) {
+      for (const assoc of res.data.data.data) {
+        const delRes = await req('DELETE', `/api/asociados/${assoc.id}`);
+        if (delRes.status === 200) {
+          console.log(`  🗑️  Asociado ${assoc.associateNumber} eliminado`);
+        }
+      }
+    }
+  }
+  console.log('  ✅ Limpieza completada\n');
+}
+
 async function runTests() {
   console.log('═══════════════════════════════════════════');
   console.log('  CoopManager - Pruebas Exhaustivas');
@@ -60,6 +78,9 @@ async function runTests() {
   const sessionRes = await req('GET', '/api/auth/session');
   assert(sessionRes.data?.user?.email === 'admin@coopeenortol.com', 'Login exitoso como admin');
   assert(sessionRes.data?.user?.permissions?.length > 0, `${sessionRes.data?.user?.permissions?.length} permisos cargados`);
+
+  // Limpieza antes de crear nuevos datos
+  await cleanup();
 
   // ========================================
   // 2. DASHBOARD
@@ -225,7 +246,7 @@ async function runTests() {
 
   // Verificar detalle
   const creditDetail = await req('GET', `/api/creditos/${creditId}`);
-  assert(creditDetail.data?.data?.status === 'SOLICITADO', 'Estado: SOLICITADO');
+  assert(creditDetail.data?.data?.status === 'SOLICITUD', 'Estado: SOLICITUD');
 
   // Aprobar crédito
   const approveRes = await req('PATCH', `/api/creditos/${creditId}`, {
@@ -240,7 +261,7 @@ async function runTests() {
   // Verificar amortización generada
   const creditAfterApproval = await req('GET', `/api/creditos/${creditId}`);
   assert(creditAfterApproval.data?.data?.status === 'APROBADO', 'Estado: APROBADO');
-  const amortEntries = creditAfterApproval.data?.data?.amortizationEntries || [];
+  const amortEntries = creditAfterApproval.data?.data?.amortization || [];
   assert(amortEntries.length === 12, `Tabla de amortización: ${amortEntries.length} cuotas (esperado: 12)`);
   const cuota1 = Number(amortEntries[0]?.totalAmount || 0);
   console.log(`  📅 Cuota mensual: $${cuota1.toLocaleString('es-CO')} (${amortEntries.length} cuotas)`);
@@ -326,8 +347,8 @@ async function runTests() {
   const dashData = dashRes2.data?.data;
   assert(dashData?.associates?.active >= 2, `Asociados activos: ${dashData?.associates?.active}`);
   assert(dashData?.savings?.totalBalance > 0, `Total ahorros: $${dashData?.savings?.totalBalance?.toLocaleString('es-CO')}`);
-  assert(dashData?.credits?.outstandingBalance > 0, `Cartera créditos: $${dashData?.credits?.outstandingBalance?.toLocaleString('es-CO')}`);
-  console.log(`  📊 Asociados: ${dashData?.associates?.active} | Ahorros: $${dashData?.savings?.totalBalance?.toLocaleString('es-CO')} | Cartera: $${dashData?.credits?.outstandingBalance?.toLocaleString('es-CO')}`);
+  assert(dashData?.credits?.totalOutstanding > 0, `Cartera créditos: $${dashData?.credits?.totalOutstanding?.toLocaleString('es-CO')}`);
+  console.log(`  📊 Asociados: ${dashData?.associates?.active} | Ahorros: $${dashData?.savings?.totalBalance?.toLocaleString('es-CO')} | Cartera: $${dashData?.credits?.totalOutstanding?.toLocaleString('es-CO')}`);
 
   // ========================================
   // 8. REPORTES
@@ -367,8 +388,9 @@ async function runTests() {
   console.log('\n📋 11. PARAMETRIZACIÓN');
   const catalogsRes = await req('GET', '/api/parametrizacion/catalogos');
   assert(catalogsRes.data?.success === true, 'Catálogos del sistema accesibles');
-  const catalogs = catalogsRes.data?.data || [];
-  assert(catalogs.length >= 11, `${catalogs.length} catálogos del sistema`);
+  const catalogs = catalogsRes.data?.data?.data || [];
+  const catalogsTotal = catalogsRes.data?.data?.total || 0;
+  assert(catalogsTotal >= 11, `${catalogsTotal} catálogos del sistema`);
 
   const configRes = await req('GET', '/api/parametrizacion/config');
   assert(configRes.data?.success === true, 'Configuración del sistema accesible');
@@ -382,7 +404,7 @@ async function runTests() {
 
   const rolesRes = await req('GET', '/api/roles');
   assert(rolesRes.data?.success === true, 'Listado de roles funciona');
-  const rolesCount = rolesRes.data?.data?.length || 0;
+  const rolesCount = rolesRes.data?.data?.total || 0;
   assert(rolesCount >= 7, `${rolesCount} roles del sistema`);
 
   const permRes = await req('GET', '/api/permisos');
@@ -404,7 +426,7 @@ async function runTests() {
   • 2 créditos (1 vigente, 1 rechazado)
   • 2 pagos de cuota al crédito vigente
   • ${auditCount}+ registros de auditoría
-  • ${catalogs.length} catálogos, ${permCount} permisos, ${rolesCount} roles
+  • ${catalogsTotal} catálogos, ${permCount} permisos, ${rolesCount} roles
   `);
 }
 

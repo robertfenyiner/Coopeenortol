@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Save, ArrowLeft, Edit, History, UserCheck, UserX, AlertCircle, Plus, Trash2, User, MapPin, Briefcase, Heart, Clock, Wallet, Landmark, DollarSign, TrendingUp } from 'lucide-react';
+import { Save, ArrowLeft, Edit, History, UserCheck, UserX, AlertCircle, Plus, Trash2, User, MapPin, Briefcase, Heart, Clock, Wallet, Landmark, DollarSign, TrendingUp, FileText, Upload, Download } from 'lucide-react';
 
 interface PersonData {
   id: string;
@@ -70,6 +70,15 @@ interface SavingsSummary {
   totalBalance: number; totalContributions: number; contributionCount: number;
 }
 
+interface DocumentData {
+  id: string;
+  documentType: string;
+  fileName: string;
+  fileSize: number | null;
+  mimeType: string | null;
+  uploadedAt: string;
+}
+
 interface CatalogItem { code: string; name: string; }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -96,12 +105,16 @@ export default function AsociadoDetallePage({ params }: { params: Promise<{ id: 
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'personal' | 'contacto' | 'laboral' | 'beneficiarios' | 'historial' | 'aportes' | 'creditos'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'contacto' | 'laboral' | 'beneficiarios' | 'historial' | 'aportes' | 'creditos' | 'documentos'>('personal');
 
   // Datos financieros
   const [contributions, setContributions] = useState<ContributionData[]>([]);
   const [credits, setCredits] = useState<CreditData[]>([]);
   const [savingsSummary, setSavingsSummary] = useState<SavingsSummary | null>(null);
+
+  // Documentos
+  const [documents, setDocuments] = useState<DocumentData[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   // Modal de cambio de estado
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -184,6 +197,52 @@ export default function AsociadoDetallePage({ params }: { params: Promise<{ id: 
     }
     loadFinancials();
   }, [id]);
+
+  // Cargar documentos
+  const fetchDocuments = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/asociados/${id}/documentos`);
+      const json = await res.json();
+      if (json.success) setDocuments(json.data || []);
+    } catch (e) { console.error(e); }
+  }, [id]);
+
+  useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
+
+  const handleUploadDocument = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const docType = prompt('Tipo de documento:\n• CEDULA\n• SOLICITUD_AFILIACION\n• COMPROBANTE_INGRESOS\n• PAGARE\n• CERTIFICADO_LABORAL\n• OTRO');
+      if (!docType) return;
+
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('documentType', docType.toUpperCase());
+        const res = await fetch(`/api/asociados/${id}/documentos`, { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) fetchDocuments();
+        else setError(json.error || 'Error al subir documento');
+      } catch (e) { console.error(e); setError('Error al subir documento'); }
+      finally { setUploading(false); }
+    };
+    input.click();
+  };
+
+  const handleDeleteDocument = async (docId: string, fileName: string) => {
+    if (!confirm(`¿Eliminar el documento "${fileName}"?`)) return;
+    try {
+      const res = await fetch(`/api/asociados/${id}/documentos/${docId}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) fetchDocuments();
+      else setError(json.error || 'Error al eliminar');
+    } catch (e) { console.error(e); }
+  };
 
   useEffect(() => {
     async function loadCatalogs() {
@@ -341,6 +400,7 @@ export default function AsociadoDetallePage({ params }: { params: Promise<{ id: 
     { key: 'aportes' as const, label: `Aportes (${contributions.length})`, icon: Wallet },
     { key: 'creditos' as const, label: `Créditos (${credits.length})`, icon: Landmark },
     { key: 'beneficiarios' as const, label: `Beneficiarios (${associate.beneficiaries.length})`, icon: Heart },
+    { key: 'documentos' as const, label: `Documentos (${documents.length})`, icon: FileText },
     { key: 'historial' as const, label: `Historial (${associate.history.length})`, icon: Clock },
   ];
 
@@ -729,6 +789,66 @@ export default function AsociadoDetallePage({ params }: { params: Promise<{ id: 
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab: Documentos */}
+      {activeTab === 'documentos' && (
+        <div className="card" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Documentos del Asociado</h3>
+              <p className="text-sm text-muted" style={{ margin: '0.25rem 0 0' }}>Archivos adjuntos (PDF, imágenes, Word, Excel — máx. 10MB)</p>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={handleUploadDocument} disabled={uploading}>
+              <Upload size={14} /> {uploading ? 'Subiendo...' : 'Subir Documento'}
+            </button>
+          </div>
+
+          {documents.length === 0 ? (
+            <div className="empty-state" style={{ padding: '2rem' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📁</div>
+              <div className="empty-state-title">Sin documentos</div>
+              <div className="empty-state-text">Suba documentos del asociado como cédula, solicitudes, pagarés, etc.</div>
+            </div>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Archivo</th>
+                  <th>Tipo</th>
+                  <th>Tamaño</th>
+                  <th>Fecha</th>
+                  <th style={{ textAlign: 'right' }}>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {documents.map((doc) => (
+                  <tr key={doc.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <FileText size={16} style={{ color: 'var(--primary-500)', flexShrink: 0 }} />
+                        <span className="font-semibold text-sm" style={{ wordBreak: 'break-all' }}>{doc.fileName}</span>
+                      </div>
+                    </td>
+                    <td><span className="badge badge-info" style={{ fontSize: '0.7rem' }}>{doc.documentType}</span></td>
+                    <td className="text-sm text-muted">{doc.fileSize ? `${(doc.fileSize / 1024).toFixed(0)} KB` : '—'}</td>
+                    <td className="text-sm text-muted">{new Date(doc.uploadedAt).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div className="flex gap-1" style={{ justifyContent: 'flex-end' }}>
+                        <a href={`/api/asociados/${id}/documentos/${doc.id}`} className="btn btn-ghost btn-sm" title="Descargar" style={{ color: 'var(--primary-500)' }}>
+                          <Download size={14} />
+                        </a>
+                        <button className="btn btn-ghost btn-sm" onClick={() => handleDeleteDocument(doc.id, doc.fileName)} title="Eliminar" style={{ color: 'var(--danger-500)' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       )}

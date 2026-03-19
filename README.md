@@ -101,6 +101,20 @@ Acceder a: **http://localhost:3000**
 - Cambio de contraseña con validación
 - Visualización de roles y permisos asignados
 
+### Fase 8 — Documentos y Adjuntos *(en progreso)*
+- Almacenamiento de documentos por asociado (cédula, solicitudes, pagarés, etc.)
+- Capa de abstracción `StorageProvider` (local ahora → Google Drive/OneDrive/S3 en el futuro)
+- API de subida, descarga y eliminación de archivos
+- Tab "Documentos" en detalle de asociado
+- Validación de tipo (PDF, imágenes, Word, Excel) y tamaño (máx. 10MB)
+
+### Fase 9 — Recaudos e Ingresos *(en progreso)*
+- Recaudos en lote: múltiples aportes de múltiples asociados en un solo recibo
+- Generación automática de número de recibo (`REC-YYYY-NNNN`)
+- Listado de recibos con búsqueda y paginación
+- Detalle de recibo con desglose de aportes
+- Anulación de recibos con reversión automática de saldos
+
 ---
 
 ## 🛡️ Seguridad
@@ -121,8 +135,9 @@ src/
 │   │   ├── usuarios/         # CRUD usuarios
 │   │   ├── roles/            # Gestión de roles
 │   │   ├── parametrizacion/  # Catálogos y config
-│   │   ├── asociados/        # Gestión de asociados
+│   │   ├── asociados/        # Gestión de asociados + documentos
 │   │   ├── aportes/          # Registro de aportes
+│   │   ├── recaudos/         # Recaudos en lote + recibos
 │   │   ├── creditos/         # Gestión de créditos
 │   │   ├── cartera/          # Gestión de cartera
 │   │   ├── reportes/         # Reportes CSV
@@ -132,6 +147,7 @@ src/
 │   └── login/                # Autenticación
 ├── lib/
 │   ├── services/             # Lógica de negocio
+│   ├── storage/              # Abstracción de almacenamiento
 │   ├── validations/          # Esquemas Zod
 │   ├── auth.ts               # Configuración NextAuth
 │   ├── prisma.ts             # Cliente Prisma
@@ -144,8 +160,44 @@ src/
 
 ## 📊 Resumen
 
-- **44 rutas** (24 API + 20 páginas)
+- **50+ rutas** (28+ API + 22+ páginas)
 - **~20 modelos** Prisma
-- **31 permisos** granulares
+- **34 permisos** granulares
 - **7 roles** predefinidos
-- **6 servicios** de negocio
+- **8 servicios** de negocio
+
+---
+
+## 📋 Estado del Proyecto y Pendientes
+
+### ✅ Implementado
+| Módulo | Estado |
+|--------|--------|
+| Autenticación y Seguridad | ✅ Completo |
+| Usuarios y RBAC | ✅ Completo |
+| Parametrización | ✅ Completo |
+| Auditoría | ✅ Completo |
+| Personas y Asociados | ✅ Completo |
+| Aportes y Ahorros | ✅ Completo |
+| Créditos | ✅ Completo |
+| Cartera | ✅ Completo |
+| Dashboard y Reportes | ✅ Completo |
+| Perfil de Usuario | ✅ Completo |
+| E2E Test (12 módulos) | ✅ Completo e idempotente |
+| Documentos y Adjuntos | 🔄 Backend + API listo, frontend (tab) listo — falta integrar ícono sidebar |
+| Recaudos e Ingresos | 🔄 Backend + API + páginas listas — falta integrar ícono sidebar |
+
+### ❌ Pendiente por Implementar
+| # | Funcionalidad | Prioridad |
+|---|---------------|-----------|
+| 1 | Integrar ícono "Receipt" en sidebar layout | 🟢 Menor |
+| 2 | Filtro `status=ACTIVO` en API asociados (para búsqueda en recaudos) | 🟢 Menor |
+| 3 | Actualizar E2E test con pasos 13 (Documentos) y 14 (Recaudos) | 🟡 Media |
+| 4 | Cloud storage providers (Google Drive, OneDrive, S3) | 🟡 Media |
+| 5 | Notificaciones (alertas de mora, vencimientos) | 🟡 Media |
+| 6 | Créditos avanzados (capacidad de pago, garantías, refinanciación) | 🟡 Media |
+| 7 | Cartera avanzada (acuerdos de pago, cartera castigada) | 🟡 Media |
+| 8 | Reportes avanzados (Excel/PDF) | 🟡 Media |
+| 9 | Multiempresa / Multisede | 🔴 Alta complejidad |
+| 10 | Dockerfile + CI/CD para producción | 🟡 Media |
+| 11 | Portal del Asociado (autoconsulta) | 🔵 Futuro |

@@ -411,6 +411,34 @@ export async function addBeneficiary(associateId: string, input: BeneficiaryInpu
 }
 
 // ------------------------------------------------------------
+// Eliminar asociado y persona (cascade)
+// ------------------------------------------------------------
+export async function deleteAssociate(id: string, performedBy: string) {
+  const associate = await prisma.associate.findUnique({
+    where: { id },
+    include: { person: true },
+  });
+  if (!associate) throw new Error('Asociado no encontrado');
+
+  // Eliminar persona (cascade elimina asociado, contributions, credits, etc.)
+  await prisma.person.delete({ where: { id: associate.personId } });
+
+  await createAuditLog({
+    userId: performedBy,
+    action: AUDIT_ACTIONS.DELETE,
+    module: MODULES.ASSOCIATES,
+    entity: 'Associate',
+    entityId: id,
+    dataBefore: {
+      associateNumber: associate.associateNumber,
+      firstName: associate.person.firstName,
+      lastName: associate.person.lastName,
+    },
+    details: `Asociado eliminado: ${associate.associateNumber} - ${associate.person.firstName} ${associate.person.lastName}`,
+  });
+}
+
+// ------------------------------------------------------------
 // Eliminar (desactivar) beneficiario
 // ------------------------------------------------------------
 export async function removeBeneficiary(beneficiaryId: string, performedBy: string) {

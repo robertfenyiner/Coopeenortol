@@ -42,6 +42,12 @@ export const AUDIT_ACTIONS = {
   CREDIT_REJECT: 'CREDIT_REJECT',
   CREDIT_DISBURSE: 'CREDIT_DISBURSE',
   CREDIT_PAYMENT: 'CREDIT_PAYMENT',
+  // Documentos
+  DOCUMENT_UPLOAD: 'DOCUMENT_UPLOAD',
+  DOCUMENT_DELETE: 'DOCUMENT_DELETE',
+  // Recaudos
+  RECEIPT_CREATE: 'RECEIPT_CREATE',
+  RECEIPT_VOID: 'RECEIPT_VOID',
 } as const;
 
 // Modules
@@ -54,7 +60,9 @@ export const MODULES = {
   AUDIT: 'audit',
   SYSTEM: 'system',
   ASSOCIATES: 'associates',
+  DOCUMENTS: 'documents',
   CONTRIBUTIONS: 'contributions',
+  RECEIPTS: 'receipts',
   CREDITS: 'credits',
   PORTFOLIO: 'portfolio',
   REPORTS: 'reports',
@@ -107,6 +115,12 @@ export const NAV_ITEMS = [
     href: '/asociados',
     icon: 'UserPlus',
     permission: 'associates.view',
+  },
+  {
+    label: 'Recaudos',
+    href: '/recaudos',
+    icon: 'Receipt',
+    permission: 'contributions.create',
   },
   {
     label: 'Aportes',
