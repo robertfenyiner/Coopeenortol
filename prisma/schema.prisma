@@ -1,0 +1,472 @@
+// CoopManager - Prisma Schema
+// Cooperative Management System - Coopeenortol
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTHENTICATION & USERS
+// ============================================================
+
+model User {
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String    @unique @db.VarChar(255)
+  passwordHash   String    @map("password_hash") @db.VarChar(255)
+  firstName      String    @map("first_name") @db.VarChar(100)
+  lastName       String    @map("last_name") @db.VarChar(100)
+  phone          String?   @db.VarChar(30)
+  avatarUrl      String?   @map("avatar_url") @db.VarChar(500)
+  isActive       Boolean   @default(true) @map("is_active")
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  lockedUntil    DateTime? @map("locked_until")
+  lastLoginAt    DateTime? @map("last_login_at")
+  lastLoginIp    String?   @map("last_login_ip") @db.VarChar(45)
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  // Relations
+  userRoles      UserRole[]
+  auditLogs      AuditLog[]
+  sessions       Session[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  isSystem    Boolean  @default(false) @map("is_system")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String?  @map("created_by") @db.Uuid
+
+  // Relations
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String @id @default(uuid()) @db.Uuid
+  module      String @db.VarChar(50)
+  action      String @db.VarChar(50)
+  code        String @unique @db.VarChar(100)
+  description String? @db.VarChar(500)
+
+  // Relations
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String   @map("user_id") @db.Uuid
+  roleId     String   @map("role_id") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  assignedBy String?  @map("assigned_by") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique @db.VarChar(500)
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  userAgent String?  @map("user_agent") @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   @db.VarChar(50) // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
+  module     String   @db.VarChar(50)
+  entity     String?  @db.VarChar(50)
+  entityId   String?  @map("entity_id") @db.VarChar(50)
+  dataBefore Json?    @map("data_before")
+  dataAfter  Json?    @map("data_after")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  details    String?  @db.VarChar(1000)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([module])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// PARAMETERIZATION - CATALOGS & SYSTEM CONFIG
+// ============================================================
+
+model Catalog {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  isSystem    Boolean  @default(false) @map("is_system")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String?  @map("created_by") @db.Uuid
+
+  items CatalogItem[]
+
+  @@map("catalogs")
+}
+
+model CatalogItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  catalogId   String   @map("catalog_id") @db.Uuid
+  code        String   @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  catalog Catalog @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+
+  @@unique([catalogId, code])
+  @@map("catalog_items")
+}
+
+model SystemConfig {
+  id          String  @id @default(uuid()) @db.Uuid
+  key         String  @unique @db.VarChar(100)
+  value       String  @db.Text
+  type        String  @default("string") @db.VarChar(20) // string, number, boolean, json
+  module      String  @db.VarChar(50)
+  description String? @db.VarChar(500)
+  isEditable  Boolean @default(true) @map("is_editable")
+
+  @@map("system_configs")
+}
+
+// ============================================================
+// PERSONS & ASSOCIATES (Fase 2)
+// ============================================================
+
+model Person {
+  id              String    @id @default(uuid()) @db.Uuid
+  documentType    String    @map("document_type") @db.VarChar(20)  // Ref: TIPO_DOCUMENTO
+  documentNumber  String    @unique @map("document_number") @db.VarChar(30)
+  firstName       String    @map("first_name") @db.VarChar(100)
+  lastName        String    @map("last_name") @db.VarChar(100)
+  secondLastName  String?   @map("second_last_name") @db.VarChar(100)
+  gender          String?   @db.VarChar(20)  // Ref: GENERO
+  birthDate       DateTime? @map("birth_date")
+  maritalStatus   String?   @map("marital_status") @db.VarChar(20)  // Ref: ESTADO_CIVIL
+  email           String?   @db.VarChar(255)
+  phone           String?   @db.VarChar(30)
+  mobilePhone     String?   @map("mobile_phone") @db.VarChar(30)
+  address         String?   @db.VarChar(500)
+  city            String?   @db.VarChar(100)
+  department      String?   @db.VarChar(100)  // Departamento / Provincia
+  housingType     String?   @map("housing_type") @db.VarChar(20)  // Ref: TIPO_VIVIENDA
+  occupation      String?   @db.VarChar(100)
+  employer        String?   @db.VarChar(200)
+  jobTitle        String?   @map("job_title") @db.VarChar(100)
+  monthlyIncome   Decimal?  @map("monthly_income") @db.Decimal(15, 2)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+
+  // Relations
+  associate       Associate?
+  beneficiaryOf   Beneficiary[]
+
+  @@index([documentType, documentNumber])
+  @@map("persons")
+}
+
+model Associate {
+  id                String    @id @default(uuid()) @db.Uuid
+  personId          String    @unique @map("person_id") @db.Uuid
+  associateNumber   String    @unique @map("associate_number") @db.VarChar(20) // ASO-YYYY-NNNN
+  status            String    @default("PENDIENTE") @db.VarChar(20) // Ref: ESTADO_ASOCIADO
+  admissionDate     DateTime? @map("admission_date")
+  withdrawalDate    DateTime? @map("withdrawal_date")
+  withdrawalReason  String?   @map("withdrawal_reason") @db.VarChar(500)
+  observations      String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  createdBy         String?   @map("created_by") @db.Uuid
+  updatedBy         String?   @map("updated_by") @db.Uuid
+
+  // Relations
+  person            Person              @relation(fields: [personId], references: [id], onDelete: Cascade)
+  beneficiaries     Beneficiary[]
+  documents         AssociateDocument[]
+  history           AssociateHistory[]
+  savingsAccounts   SavingsAccount[]
+  contributions     Contribution[]
+  credits           Credit[]
+
+  @@index([status])
+  @@index([associateNumber])
+  @@map("associates")
+}
+
+model Beneficiary {
+  id            String   @id @default(uuid()) @db.Uuid
+  associateId   String   @map("associate_id") @db.Uuid
+  personId      String?  @map("person_id") @db.Uuid
+  fullName      String   @map("full_name") @db.VarChar(200)
+  relationship  String   @db.VarChar(50)  // Ref: PARENTESCO
+  percentage    Decimal  @db.Decimal(5, 2) // 0.00 - 100.00
+  phone         String?  @db.VarChar(30)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  associate     Associate @relation(fields: [associateId], references: [id], onDelete: Cascade)
+  person        Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@map("beneficiaries")
+}
+
+model AssociateDocument {
+  id            String   @id @default(uuid()) @db.Uuid
+  associateId   String   @map("associate_id") @db.Uuid
+  documentType  String   @map("document_type") @db.VarChar(50) // "CEDULA", "SOLICITUD", "PAGARE", etc.
+  fileName      String   @map("file_name") @db.VarChar(255)
+  filePath      String   @map("file_path") @db.VarChar(500)
+  fileSize      Int?     @map("file_size")
+  mimeType      String?  @map("mime_type") @db.VarChar(100)
+  uploadedAt    DateTime @default(now()) @map("uploaded_at")
+  uploadedBy    String?  @map("uploaded_by") @db.Uuid
+
+  // Relations
+  associate     Associate @relation(fields: [associateId], references: [id], onDelete: Cascade)
+
+  @@map("associate_documents")
+}
+
+model AssociateHistory {
+  id              String   @id @default(uuid()) @db.Uuid
+  associateId     String   @map("associate_id") @db.Uuid
+  action          String   @db.VarChar(50) // "CREACION", "CAMBIO_ESTADO", "ACTUALIZACION", etc.
+  previousStatus  String?  @map("previous_status") @db.VarChar(20)
+  newStatus       String?  @map("new_status") @db.VarChar(20)
+  details         String?  @db.VarChar(1000)
+  performedBy     String?  @map("performed_by") @db.Uuid
+  performedAt     DateTime @default(now()) @map("performed_at")
+
+  // Relations
+  associate       Associate @relation(fields: [associateId], references: [id], onDelete: Cascade)
+
+  @@index([associateId])
+  @@index([performedAt])
+  @@map("associate_history")
+}
+
+// ============================================================
+// CONTRIBUTIONS & SAVINGS (Fase 3)
+// ============================================================
+
+model SavingsAccount {
+  id              String   @id @default(uuid()) @db.Uuid
+  associateId     String   @map("associate_id") @db.Uuid
+  accountType     String   @map("account_type") @db.VarChar(30) // Ref: TIPO_APORTE (ORDINARIO, EXTRAORDINARIO, CUOTA_INGRESO)
+  balance         Decimal  @default(0) @db.Decimal(15, 2)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  associate       Associate      @relation(fields: [associateId], references: [id], onDelete: Cascade)
+  contributions   Contribution[]
+
+  @@unique([associateId, accountType])
+  @@index([associateId])
+  @@map("savings_accounts")
+}
+
+model Contribution {
+  id                String   @id @default(uuid()) @db.Uuid
+  associateId       String   @map("associate_id") @db.Uuid
+  savingsAccountId  String   @map("savings_account_id") @db.Uuid
+  receiptId         String?  @map("receipt_id") @db.Uuid
+  type              String   @db.VarChar(30)  // Ref: TIPO_APORTE
+  amount            Decimal  @db.Decimal(15, 2)
+  periodYear        Int?     @map("period_year")
+  periodMonth       Int?     @map("period_month") // 1-12
+  paymentMethod     String?  @map("payment_method") @db.VarChar(30) // EFECTIVO, TRANSFERENCIA, NOMINA
+  reference         String?  @db.VarChar(100) // Referencia bancaria / comprobante
+  observations      String?  @db.VarChar(500)
+  status            String   @default("APLICADO") @db.VarChar(20) // APLICADO, ANULADO
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  createdBy         String?  @map("created_by") @db.Uuid
+
+  // Relations
+  associate         Associate      @relation(fields: [associateId], references: [id], onDelete: Cascade)
+  savingsAccount    SavingsAccount @relation(fields: [savingsAccountId], references: [id], onDelete: Cascade)
+  receipt           PaymentReceipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+
+  @@index([associateId])
+  @@index([savingsAccountId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("contributions")
+}
+
+model PaymentReceipt {
+  id              String   @id @default(uuid()) @db.Uuid
+  receiptNumber   String   @unique @map("receipt_number") @db.VarChar(20) // REC-YYYY-NNNN
+  associateId     String   @map("associate_id") @db.Uuid
+  totalAmount     Decimal  @map("total_amount") @db.Decimal(15, 2)
+  paymentMethod   String   @map("payment_method") @db.VarChar(30)
+  reference       String?  @db.VarChar(100)
+  observations    String?  @db.VarChar(500)
+  status          String   @default("ACTIVO") @db.VarChar(20) // ACTIVO, ANULADO
+  createdAt       DateTime @default(now()) @map("created_at")
+  createdBy       String?  @map("created_by") @db.Uuid
+
+  // Relations
+  contributions   Contribution[]
+
+  @@index([associateId])
+  @@index([createdAt])
+  @@map("payment_receipts")
+}
+
+// ============================================================
+// CREDITS (Fase 4)
+// ============================================================
+
+model Credit {
+  id                  String    @id @default(uuid()) @db.Uuid
+  associateId         String    @map("associate_id") @db.Uuid
+  creditNumber        String    @unique @map("credit_number") @db.VarChar(20) // CRE-YYYY-NNNN
+  creditLine          String    @map("credit_line") @db.VarChar(30)  // Ref: LINEA_CREDITO
+  status              String    @default("SOLICITUD") @db.VarChar(20) // Ref: ESTADO_CREDITO
+  requestedAmount     Decimal   @map("requested_amount") @db.Decimal(15, 2)
+  approvedAmount      Decimal?  @map("approved_amount") @db.Decimal(15, 2)
+  disbursedAmount     Decimal?  @map("disbursed_amount") @db.Decimal(15, 2)
+  interestRate        Decimal   @map("interest_rate") @db.Decimal(5, 2)  // Tasa mensual %
+  termMonths          Int       @map("term_months")  // Plazo en meses
+  paymentFrequency    String    @map("payment_frequency") @db.VarChar(20)  // Ref: PERIODICIDAD
+  purpose             String?   @db.VarChar(500)  // Destino del crédito
+  guaranteeType       String?   @map("guarantee_type") @db.VarChar(50)  // PERSONAL, CODEUDOR, REAL
+  guaranteeDescription String?  @map("guarantee_description") @db.VarChar(500)
+  // Fechas del ciclo
+  requestDate         DateTime  @default(now()) @map("request_date")
+  approvedDate        DateTime? @map("approved_date")
+  approvedBy          String?   @map("approved_by") @db.Uuid
+  rejectedDate        DateTime? @map("rejected_date")
+  rejectionReason     String?   @map("rejection_reason") @db.VarChar(500)
+  disbursementDate    DateTime? @map("disbursement_date")
+  firstPaymentDate    DateTime? @map("first_payment_date")
+  lastPaymentDate     DateTime? @map("last_payment_date")
+  // Saldos
+  outstandingBalance  Decimal   @default(0) @map("outstanding_balance") @db.Decimal(15, 2)
+  totalPaid           Decimal   @default(0) @map("total_paid") @db.Decimal(15, 2)
+  totalInterestPaid   Decimal   @default(0) @map("total_interest_paid") @db.Decimal(15, 2)
+  // Meta
+  observations        String?   @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdBy           String?   @map("created_by") @db.Uuid
+
+  // Relations
+  associate           Associate           @relation(fields: [associateId], references: [id], onDelete: Cascade)
+  amortization        AmortizationEntry[]
+  payments            CreditPayment[]
+
+  @@index([associateId])
+  @@index([status])
+  @@index([creditNumber])
+  @@map("credits")
+}
+
+model AmortizationEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  creditId        String   @map("credit_id") @db.Uuid
+  installmentNumber Int    @map("installment_number")
+  dueDate         DateTime @map("due_date")
+  principalAmount Decimal  @map("principal_amount") @db.Decimal(15, 2)
+  interestAmount  Decimal  @map("interest_amount") @db.Decimal(15, 2)
+  totalAmount     Decimal  @map("total_amount") @db.Decimal(15, 2)
+  remainingBalance Decimal @map("remaining_balance") @db.Decimal(15, 2)
+  status          String   @default("PENDIENTE") @db.VarChar(20)  // PENDIENTE, PAGADO, VENCIDO
+  paidDate        DateTime? @map("paid_date")
+  paidAmount      Decimal?  @map("paid_amount") @db.Decimal(15, 2)
+
+  // Relations
+  credit          Credit   @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  @@unique([creditId, installmentNumber])
+  @@index([creditId])
+  @@index([dueDate])
+  @@map("amortization_entries")
+}
+
+model CreditPayment {
+  id              String   @id @default(uuid()) @db.Uuid
+  creditId        String   @map("credit_id") @db.Uuid
+  paymentNumber   Int      @map("payment_number")
+  amount          Decimal  @db.Decimal(15, 2)
+  principalPaid   Decimal  @map("principal_paid") @db.Decimal(15, 2)
+  interestPaid    Decimal  @map("interest_paid") @db.Decimal(15, 2)
+  lateFee         Decimal  @default(0) @map("late_fee") @db.Decimal(15, 2)
+  paymentMethod   String   @map("payment_method") @db.VarChar(30)
+  reference       String?  @db.VarChar(100)
+  observations    String?  @db.VarChar(500)
+  paymentDate     DateTime @default(now()) @map("payment_date")
+  createdBy       String?  @map("created_by") @db.Uuid
+
+  // Relations
+  credit          Credit   @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  @@index([creditId])
+  @@index([paymentDate])
+  @@map("credit_payments")
+}
