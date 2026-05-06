@@ -23,6 +23,11 @@ import {
   FileSpreadsheet,
   PieChart,
   Receipt,
+  FileText,
+  PiggyBank,
+  BookOpenCheck,
+  UserCircle,
+  CloudCog,
 } from 'lucide-react';
 import { useState } from 'react';
 import { SessionProvider } from 'next-auth/react';
@@ -42,6 +47,11 @@ const iconMap: Record<string, React.ElementType> = {
   FileSpreadsheet,
   PieChart,
   Receipt,
+  FileText,
+  PiggyBank,
+  BookOpenCheck,
+  UserCircle,
+  CloudCog,
 };
 
 interface NavItemConfig {
@@ -142,6 +152,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     asociados: 'Asociados',
     aportes: 'Aportes',
     creditos: 'Créditos',
+    libranzas: 'Libranzas',
+    cdats: 'CDATs',
+    contabilidad: 'Contabilidad',
+    'portal-asociado': 'Mi Portal',
+    integraciones: 'Integraciones',
     cartera: 'Cartera',
     reportes: 'Reportes',
     perfil: 'Mi Perfil',

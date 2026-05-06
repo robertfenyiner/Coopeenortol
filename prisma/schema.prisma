@@ -20,6 +20,7 @@ model User {
   passwordHash   String    @map("password_hash") @db.VarChar(255)
   firstName      String    @map("first_name") @db.VarChar(100)
   lastName       String    @map("last_name") @db.VarChar(100)
+  associateId    String?   @unique @map("associate_id") @db.Uuid
   phone          String?   @db.VarChar(30)
   avatarUrl      String?   @map("avatar_url") @db.VarChar(500)
   isActive       Boolean   @default(true) @map("is_active")
@@ -37,6 +38,7 @@ model User {
   userRoles      UserRole[]
   auditLogs      AuditLog[]
   sessions       Session[]
+  associate      Associate? @relation(fields: [associateId], references: [id], onDelete: SetNull)
 
   @@map("users")
 }
@@ -247,6 +249,10 @@ model Associate {
   savingsAccounts   SavingsAccount[]
   contributions     Contribution[]
   credits           Credit[]
+  payrollDeductionDetails PayrollDeductionDetail[]
+  cdatInvestments   CdatInvestment[]
+  accountingLines   AccountingJournalLine[]
+  portalUsers       User[]
 
   @@index([status])
   @@index([associateNumber])
@@ -278,6 +284,9 @@ model AssociateDocument {
   documentType  String   @map("document_type") @db.VarChar(50) // "CEDULA", "SOLICITUD", "PAGARE", etc.
   fileName      String   @map("file_name") @db.VarChar(255)
   filePath      String   @map("file_path") @db.VarChar(500)
+  storageProvider String @default("local") @map("storage_provider") @db.VarChar(30)
+  storageBucket String?  @map("storage_bucket") @db.VarChar(120)
+  checksum      String?  @db.VarChar(128)
   fileSize      Int?     @map("file_size")
   mimeType      String?  @map("mime_type") @db.VarChar(100)
   uploadedAt    DateTime @default(now()) @map("uploaded_at")
@@ -287,6 +296,55 @@ model AssociateDocument {
   associate     Associate @relation(fields: [associateId], references: [id], onDelete: Cascade)
 
   @@map("associate_documents")
+}
+
+// ============================================================
+// INTEGRATIONS - NOTIFICATIONS (Fase E)
+// ============================================================
+
+model NotificationTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(80)
+  name        String   @db.VarChar(150)
+  channel     String   @db.VarChar(30) // EMAIL, WHATSAPP
+  subject     String?  @db.VarChar(200)
+  body        String   @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String?  @map("created_by") @db.Uuid
+  updatedBy   String?  @map("updated_by") @db.Uuid
+
+  notifications NotificationLog[]
+
+  @@index([channel])
+  @@index([isActive])
+  @@map("notification_templates")
+}
+
+model NotificationLog {
+  id              String    @id @default(uuid()) @db.Uuid
+  templateId      String?   @map("template_id") @db.Uuid
+  channel         String    @db.VarChar(30) // EMAIL, WHATSAPP
+  recipient       String    @db.VarChar(255)
+  subject         String?   @db.VarChar(200)
+  body            String    @db.Text
+  status          String    @default("PENDIENTE") @db.VarChar(30) // PENDIENTE, ENVIADO, FALLIDO, OMITIDO
+  provider        String?   @db.VarChar(50)
+  providerMessageId String? @map("provider_message_id") @db.VarChar(120)
+  errorMessage    String?   @map("error_message") @db.VarChar(1000)
+  metadata        Json?
+  sentAt          DateTime? @map("sent_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  createdBy       String?   @map("created_by") @db.Uuid
+
+  template        NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@index([channel])
+  @@index([status])
+  @@index([recipient])
+  @@index([createdAt])
+  @@map("notification_logs")
 }
 
 model AssociateHistory {
@@ -350,6 +408,7 @@ model Contribution {
   associate         Associate      @relation(fields: [associateId], references: [id], onDelete: Cascade)
   savingsAccount    SavingsAccount @relation(fields: [savingsAccountId], references: [id], onDelete: Cascade)
   receipt           PaymentReceipt? @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+  payrollDeductionDetails PayrollDeductionDetail[]
 
   @@index([associateId])
   @@index([savingsAccountId])
@@ -420,6 +479,7 @@ model Credit {
   associate           Associate           @relation(fields: [associateId], references: [id], onDelete: Cascade)
   amortization        AmortizationEntry[]
   payments            CreditPayment[]
+  payrollDeductionDetails PayrollDeductionDetail[]
 
   @@index([associateId])
   @@index([status])
@@ -442,6 +502,7 @@ model AmortizationEntry {
 
   // Relations
   credit          Credit   @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  payrollDeductionDetails PayrollDeductionDetail[]
 
   @@unique([creditId, installmentNumber])
   @@index([creditId])
@@ -465,8 +526,312 @@ model CreditPayment {
 
   // Relations
   credit          Credit   @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  payrollDeductionDetails PayrollDeductionDetail[]
 
   @@index([creditId])
   @@index([paymentDate])
   @@map("credit_payments")
+}
+
+// ============================================================
+// PAYROLL DEDUCTIONS / LIBRANZAS (Fase A)
+// ============================================================
+
+model PayingEntity {
+  id             String   @id @default(uuid()) @db.Uuid
+  code           String   @unique @db.VarChar(30)
+  name           String   @db.VarChar(200)
+  nit            String?  @db.VarChar(30)
+  entityType     String   @map("entity_type") @db.VarChar(30) // SECRETARIA, COLEGIO, UNIVERSIDAD, OTRO
+  contactName    String?  @map("contact_name") @db.VarChar(150)
+  contactEmail   String?  @map("contact_email") @db.VarChar(255)
+  contactPhone   String?  @map("contact_phone") @db.VarChar(30)
+  fileFormat     String   @default("CSV") @map("file_format") @db.VarChar(30) // CSV, TXT_FIXED
+  separator      String   @default(";") @db.VarChar(5)
+  encoding       String   @default("UTF-8") @db.VarChar(20)
+  paymentCycle   String   @default("MENSUAL") @map("payment_cycle") @db.VarChar(20)
+  cutoffDay      Int?     @map("cutoff_day")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdBy      String?  @map("created_by") @db.Uuid
+  updatedBy      String?  @map("updated_by") @db.Uuid
+
+  batches        PayrollDeductionBatch[]
+
+  @@index([entityType])
+  @@index([isActive])
+  @@map("paying_entities")
+}
+
+model PayrollDeductionBatch {
+  id                   String    @id @default(uuid()) @db.Uuid
+  batchNumber          String    @unique @map("batch_number") @db.VarChar(30)
+  payingEntityId       String    @map("paying_entity_id") @db.Uuid
+  periodYear           Int       @map("period_year")
+  periodMonth          Int       @map("period_month")
+  status               String    @default("BORRADOR") @db.VarChar(30) // BORRADOR, GENERADO, ENVIADO, CONCILIACION_PARCIAL, CONCILIADO, ANULADO
+  includeContributions Boolean   @default(true) @map("include_contributions")
+  includeCredits       Boolean   @default(true) @map("include_credits")
+  totalRecords         Int       @default(0) @map("total_records")
+  totalAmount          Decimal   @default(0) @map("total_amount") @db.Decimal(15, 2)
+  appliedAmount        Decimal   @default(0) @map("applied_amount") @db.Decimal(15, 2)
+  rejectedAmount       Decimal   @default(0) @map("rejected_amount") @db.Decimal(15, 2)
+  generatedAt          DateTime? @map("generated_at")
+  sentAt               DateTime? @map("sent_at")
+  conciliatedAt        DateTime? @map("conciliated_at")
+  fileName             String?   @map("file_name") @db.VarChar(255)
+  fileHash             String?   @map("file_hash") @db.VarChar(128)
+  generationMetadata   Json?     @map("generation_metadata")
+  conciliationMetadata Json?     @map("conciliation_metadata")
+  observations         String?   @db.Text
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  createdBy            String?   @map("created_by") @db.Uuid
+  updatedBy            String?   @map("updated_by") @db.Uuid
+
+  payingEntity         PayingEntity             @relation(fields: [payingEntityId], references: [id], onDelete: Restrict)
+  details              PayrollDeductionDetail[]
+
+  @@unique([payingEntityId, periodYear, periodMonth])
+  @@index([status])
+  @@index([periodYear, periodMonth])
+  @@index([payingEntityId])
+  @@map("payroll_deduction_batches")
+}
+
+model PayrollDeductionDetail {
+  id                  String   @id @default(uuid()) @db.Uuid
+  batchId             String   @map("batch_id") @db.Uuid
+  associateId         String   @map("associate_id") @db.Uuid
+  creditId            String?  @map("credit_id") @db.Uuid
+  amortizationEntryId String?  @map("amortization_entry_id") @db.Uuid
+  contributionId      String?  @map("contribution_id") @db.Uuid
+  creditPaymentId     String?  @map("credit_payment_id") @db.Uuid
+  lineNumber          Int      @map("line_number")
+  documentType        String   @map("document_type") @db.VarChar(20)
+  documentNumber      String   @map("document_number") @db.VarChar(30)
+  associateNumber     String   @map("associate_number") @db.VarChar(20)
+  fullName            String   @map("full_name") @db.VarChar(250)
+  payrollCode         String?  @map("payroll_code") @db.VarChar(50)
+  conceptCode         String   @map("concept_code") @db.VarChar(50)
+  conceptType         String   @map("concept_type") @db.VarChar(30) // APORTE, CREDITO
+  amount              Decimal  @db.Decimal(15, 2)
+  appliedAmount       Decimal  @default(0) @map("applied_amount") @db.Decimal(15, 2)
+  rejectedAmount      Decimal  @default(0) @map("rejected_amount") @db.Decimal(15, 2)
+  status              String   @default("PENDIENTE") @db.VarChar(30) // PENDIENTE, ENVIADO, APLICADO, RECHAZADO, PARCIAL, ANULADO
+  rejectionReason     String?  @map("rejection_reason") @db.VarChar(500)
+  sourcePayload       Json?    @map("source_payload")
+  conciliationPayload Json?    @map("conciliation_payload")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  createdBy           String?  @map("created_by") @db.Uuid
+  updatedBy           String?  @map("updated_by") @db.Uuid
+
+  batch               PayrollDeductionBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  associate           Associate             @relation(fields: [associateId], references: [id], onDelete: Restrict)
+  credit              Credit?               @relation(fields: [creditId], references: [id], onDelete: SetNull)
+  amortizationEntry   AmortizationEntry?    @relation(fields: [amortizationEntryId], references: [id], onDelete: SetNull)
+  contribution        Contribution?         @relation(fields: [contributionId], references: [id], onDelete: SetNull)
+  creditPayment       CreditPayment?        @relation(fields: [creditPaymentId], references: [id], onDelete: SetNull)
+
+  @@unique([batchId, lineNumber])
+  @@index([batchId])
+  @@index([associateId])
+  @@index([documentNumber])
+  @@index([status])
+  @@index([conceptType])
+  @@map("payroll_deduction_details")
+}
+
+// ============================================================
+// CDATS - TERM DEPOSIT CERTIFICATES (Fase B)
+// ============================================================
+
+model CdatProduct {
+  id               String   @id @default(uuid()) @db.Uuid
+  code             String   @unique @db.VarChar(30)
+  name             String   @db.VarChar(150)
+  description      String?  @db.VarChar(500)
+  minAmount        Decimal  @map("min_amount") @db.Decimal(15, 2)
+  maxAmount        Decimal? @map("max_amount") @db.Decimal(15, 2)
+  minTermDays      Int      @map("min_term_days")
+  maxTermDays      Int?     @map("max_term_days")
+  annualRate       Decimal  @map("annual_rate") @db.Decimal(7, 4)
+  interestMode     String   @default("SIMPLE") @map("interest_mode") @db.VarChar(20) // SIMPLE, COMPOUND
+  paymentFrequency String   @default("VENCIMIENTO") @map("payment_frequency") @db.VarChar(30)
+  withholdingRate  Decimal  @default(0) @map("withholding_rate") @db.Decimal(7, 4)
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdBy        String?  @map("created_by") @db.Uuid
+  updatedBy        String?  @map("updated_by") @db.Uuid
+
+  investments      CdatInvestment[]
+
+  @@index([isActive])
+  @@map("cdat_products")
+}
+
+model CdatInvestment {
+  id                 String    @id @default(uuid()) @db.Uuid
+  certificateNumber  String    @unique @map("certificate_number") @db.VarChar(30)
+  associateId        String    @map("associate_id") @db.Uuid
+  productId          String    @map("product_id") @db.Uuid
+  principalAmount    Decimal   @map("principal_amount") @db.Decimal(15, 2)
+  annualRate         Decimal   @map("annual_rate") @db.Decimal(7, 4)
+  termDays           Int       @map("term_days")
+  startDate          DateTime  @map("start_date")
+  maturityDate       DateTime  @map("maturity_date")
+  expectedInterest   Decimal   @map("expected_interest") @db.Decimal(15, 2)
+  withholdingAmount  Decimal   @default(0) @map("withholding_amount") @db.Decimal(15, 2)
+  netInterest        Decimal   @map("net_interest") @db.Decimal(15, 2)
+  status             String    @default("ACTIVO") @db.VarChar(30) // ACTIVO, VENCIDO, LIQUIDADO, CANCELADO
+  renewalPolicy      String    @default("NO_RENUEVA") @map("renewal_policy") @db.VarChar(30)
+  redeemedAt         DateTime? @map("redeemed_at")
+  cancelledAt        DateTime? @map("cancelled_at")
+  observations       String?   @db.Text
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  createdBy          String?   @map("created_by") @db.Uuid
+  updatedBy          String?   @map("updated_by") @db.Uuid
+
+  associate          Associate        @relation(fields: [associateId], references: [id], onDelete: Restrict)
+  product            CdatProduct      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  movements          CdatMovement[]
+
+  @@index([associateId])
+  @@index([productId])
+  @@index([status])
+  @@index([maturityDate])
+  @@map("cdat_investments")
+}
+
+model CdatMovement {
+  id             String   @id @default(uuid()) @db.Uuid
+  investmentId   String   @map("investment_id") @db.Uuid
+  movementType   String   @map("movement_type") @db.VarChar(30) // APERTURA, VENCIMIENTO, LIQUIDACION, CANCELACION
+  principalAmount Decimal @default(0) @map("principal_amount") @db.Decimal(15, 2)
+  interestAmount Decimal  @default(0) @map("interest_amount") @db.Decimal(15, 2)
+  withholdingAmount Decimal @default(0) @map("withholding_amount") @db.Decimal(15, 2)
+  netAmount      Decimal  @default(0) @map("net_amount") @db.Decimal(15, 2)
+  reference      String?  @db.VarChar(100)
+  observations   String?  @db.VarChar(500)
+  performedAt    DateTime @default(now()) @map("performed_at")
+  performedBy    String?  @map("performed_by") @db.Uuid
+
+  investment     CdatInvestment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+
+  @@index([investmentId])
+  @@index([movementType])
+  @@index([performedAt])
+  @@map("cdat_movements")
+}
+
+// ============================================================
+// ACCOUNTING - CHART OF ACCOUNTS & JOURNAL ENTRIES (Fase C)
+// ============================================================
+
+model ChartAccount {
+  id              String   @id @default(uuid()) @db.Uuid
+  code            String   @unique @db.VarChar(30)
+  name            String   @db.VarChar(180)
+  description     String?  @db.VarChar(500)
+  accountType     String   @map("account_type") @db.VarChar(30) // ACTIVO, PASIVO, PATRIMONIO, INGRESO, GASTO, COSTO
+  nature          String   @db.VarChar(10) // DEBIT, CREDIT
+  parentId        String?  @map("parent_id") @db.Uuid
+  level           Int      @default(1)
+  isMovement      Boolean  @default(true) @map("is_movement")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdBy       String?  @map("created_by") @db.Uuid
+  updatedBy       String?  @map("updated_by") @db.Uuid
+
+  parent          ChartAccount? @relation("ChartAccountHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children        ChartAccount[] @relation("ChartAccountHierarchy")
+  journalLines    AccountingJournalLine[]
+  debitRules      AccountingRule[] @relation("AccountingRuleDebitAccount")
+  creditRules     AccountingRule[] @relation("AccountingRuleCreditAccount")
+
+  @@index([accountType])
+  @@index([parentId])
+  @@index([isActive])
+  @@map("chart_accounts")
+}
+
+model AccountingRule {
+  id              String   @id @default(uuid()) @db.Uuid
+  code            String   @unique @db.VarChar(60)
+  name            String   @db.VarChar(180)
+  module          String   @db.VarChar(50)
+  event           String   @db.VarChar(80)
+  debitAccountId  String   @map("debit_account_id") @db.Uuid
+  creditAccountId String   @map("credit_account_id") @db.Uuid
+  description     String?  @db.VarChar(500)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdBy       String?  @map("created_by") @db.Uuid
+  updatedBy       String?  @map("updated_by") @db.Uuid
+
+  debitAccount    ChartAccount @relation("AccountingRuleDebitAccount", fields: [debitAccountId], references: [id], onDelete: Restrict)
+  creditAccount   ChartAccount @relation("AccountingRuleCreditAccount", fields: [creditAccountId], references: [id], onDelete: Restrict)
+
+  @@unique([module, event])
+  @@index([module])
+  @@index([event])
+  @@index([isActive])
+  @@map("accounting_rules")
+}
+
+model AccountingJournalEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  entryNumber     String   @unique @map("entry_number") @db.VarChar(30)
+  entryDate       DateTime @default(now()) @map("entry_date")
+  description     String   @db.VarChar(500)
+  sourceModule    String?  @map("source_module") @db.VarChar(50)
+  sourceEvent     String?  @map("source_event") @db.VarChar(80)
+  sourceEntity    String?  @map("source_entity") @db.VarChar(80)
+  sourceEntityId  String?  @map("source_entity_id") @db.VarChar(80)
+  status          String   @default("CONTABILIZADO") @db.VarChar(30) // BORRADOR, CONTABILIZADO, ANULADO
+  totalDebit      Decimal  @default(0) @map("total_debit") @db.Decimal(15, 2)
+  totalCredit     Decimal  @default(0) @map("total_credit") @db.Decimal(15, 2)
+  postedAt        DateTime @default(now()) @map("posted_at")
+  postedBy        String?  @map("posted_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdBy       String?  @map("created_by") @db.Uuid
+  updatedBy       String?  @map("updated_by") @db.Uuid
+
+  lines           AccountingJournalLine[]
+
+  @@index([entryDate])
+  @@index([sourceModule, sourceEvent])
+  @@index([sourceEntity, sourceEntityId])
+  @@index([status])
+  @@map("accounting_journal_entries")
+}
+
+model AccountingJournalLine {
+  id              String   @id @default(uuid()) @db.Uuid
+  entryId         String   @map("entry_id") @db.Uuid
+  accountId       String   @map("account_id") @db.Uuid
+  associateId     String?  @map("associate_id") @db.Uuid
+  lineNumber      Int      @map("line_number")
+  description     String?  @db.VarChar(500)
+  debit           Decimal  @default(0) @db.Decimal(15, 2)
+  credit          Decimal  @default(0) @db.Decimal(15, 2)
+  thirdPartyName  String?  @map("third_party_name") @db.VarChar(200)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  entry           AccountingJournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account         ChartAccount           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  associate       Associate?             @relation(fields: [associateId], references: [id], onDelete: SetNull)
+
+  @@unique([entryId, lineNumber])
+  @@index([entryId])
+  @@index([accountId])
+  @@index([associateId])
+  @@map("accounting_journal_lines")
 }

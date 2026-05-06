@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { AUDIT_ACTIONS, MODULES } from '@/lib/constants';
 import { createAuditLog } from './audit.service';
 import { CreateCreditInput, ApproveCreditInput, CreditPaymentInput } from '@/lib/validations/schemas';
+import { ACCOUNTING_EVENTS, postSimpleRuleEntry } from './accounting.service';
 
 // ------------------------------------------------------------
 // Generar número de crédito correlativo
@@ -298,7 +299,10 @@ export async function rejectCredit(id: string, reason: string, rejectedBy: strin
 // Desembolsar crédito
 // ------------------------------------------------------------
 export async function disburseCredit(id: string, performedBy: string) {
-  const credit = await prisma.credit.findUnique({ where: { id } });
+  const credit = await prisma.credit.findUnique({
+    where: { id },
+    include: { associate: { include: { person: true } } },
+  });
   if (!credit) throw new Error('Crédito no encontrado');
   if (credit.status !== 'APROBADO') throw new Error('Solo se pueden desembolsar créditos aprobados');
 
@@ -329,6 +333,18 @@ export async function disburseCredit(id: string, performedBy: string) {
     details: `Crédito ${credit.creditNumber} desembolsado: $${disbursedAmount.toLocaleString()}`,
   });
 
+  await postSimpleRuleEntry({
+    module: MODULES.CREDITS,
+    event: ACCOUNTING_EVENTS.CREDIT_DISBURSEMENT,
+    amount: disbursedAmount,
+    description: `Desembolso crédito ${credit.creditNumber}`,
+    sourceEntity: 'Credit',
+    sourceEntityId: id,
+    associateId: credit.associateId,
+    thirdPartyName: `${credit.associate.person.firstName} ${credit.associate.person.lastName}`,
+    createdBy: performedBy,
+  });
+
   return getCreditById(id);
 }
 
@@ -338,7 +354,7 @@ export async function disburseCredit(id: string, performedBy: string) {
 export async function registerCreditPayment(creditId: string, input: CreditPaymentInput, createdBy: string) {
   const credit = await prisma.credit.findUnique({
     where: { id: creditId },
-    include: { payments: true },
+    include: { payments: true, associate: { include: { person: true } } },
   });
   if (!credit) throw new Error('Crédito no encontrado');
   if (credit.status !== 'VIGENTE' && credit.status !== 'VENCIDO') {
@@ -363,9 +379,11 @@ export async function registerCreditPayment(creditId: string, input: CreditPayme
     principalPaid = input.amount;
   }
 
+  let createdPaymentId = '';
+
   await prisma.$transaction(async (tx) => {
     // 1. Registrar pago
-    await tx.creditPayment.create({
+    const payment = await tx.creditPayment.create({
       data: {
         creditId,
         paymentNumber,
@@ -378,6 +396,7 @@ export async function registerCreditPayment(creditId: string, input: CreditPayme
         createdBy,
       },
     });
+    createdPaymentId = payment.id;
 
     // 2. Marcar cuota como pagada si corresponde
     if (nextEntry) {
@@ -412,6 +431,18 @@ export async function registerCreditPayment(creditId: string, input: CreditPayme
     entityId: creditId,
     dataAfter: { paymentNumber, amount: input.amount, principalPaid, interestPaid },
     details: `Pago #${paymentNumber} al crédito ${credit.creditNumber}: $${input.amount.toLocaleString()}`,
+  });
+
+  await postSimpleRuleEntry({
+    module: MODULES.CREDITS,
+    event: ACCOUNTING_EVENTS.CREDIT_PAYMENT,
+    amount: principalPaid,
+    description: `Abono a capital crédito ${credit.creditNumber}`,
+    sourceEntity: 'CreditPayment',
+    sourceEntityId: createdPaymentId,
+    associateId: credit.associateId,
+    thirdPartyName: `${credit.associate.person.firstName} ${credit.associate.person.lastName}`,
+    createdBy,
   });
 
   return getCreditById(creditId);
