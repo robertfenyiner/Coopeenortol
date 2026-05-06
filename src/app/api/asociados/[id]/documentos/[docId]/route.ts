@@ -13,9 +13,9 @@ export async function GET(
 ) {
   try {
     await requirePermission('associates.view');
-    const { docId } = await params;
+    const { id, docId } = await params;
 
-    const { buffer, fileName, mimeType } = await downloadDocument(docId);
+    const { buffer, fileName, mimeType } = await downloadDocument(docId, id);
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {
@@ -36,8 +36,8 @@ export async function DELETE(
 ) {
   try {
     const user = await requirePermission('associates.edit');
-    const { docId } = await params;
-    await deleteDocument(docId, user.id);
+    const { id, docId } = await params;
+    await deleteDocument(docId, id, user.id);
     return successResponse({ deleted: true });
   } catch (error) {
     return handleApiError(error);

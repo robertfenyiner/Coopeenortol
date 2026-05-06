@@ -10,7 +10,7 @@ import type { StorageProvider } from './index';
 const UPLOAD_BASE = path.join(process.cwd(), 'uploads', 'documents');
 
 export class LocalStorageProvider implements StorageProvider {
-  async upload(file: Buffer, filePath: string, _mimeType: string): Promise<string> {
+  async upload(file: Buffer, filePath: string): Promise<string> {
     const fullPath = path.join(UPLOAD_BASE, filePath);
     const dir = path.dirname(fullPath);
     await fs.mkdir(dir, { recursive: true });

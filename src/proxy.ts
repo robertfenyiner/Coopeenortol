@@ -1,5 +1,5 @@
 // ============================================================
-// CoopManager - Auth Middleware
+// CoopManager - Auth Proxy
 // ============================================================
 
 import { NextResponse } from 'next/server';
@@ -9,7 +9,7 @@ import { auth } from '@/lib/auth';
 // Routes that don't require authentication
 const publicPaths = ['/login', '/api/auth'];
 
-export default async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,7 +41,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
-          <img src="/logo-principal.jpg" alt="Coopeenortol" />
+          <Image src="/logo-principal.jpg" alt="Coopeenortol" width={180} height={96} priority />
           <h1>Coopeenortol</h1>
           <p>Sistema de Gestión de Cooperativa</p>
         </div>

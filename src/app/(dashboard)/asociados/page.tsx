@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Eye, UserCheck, UserX, Clock, Filter } from 'lucide-react';
+import { Search, Plus, Eye, Filter } from 'lucide-react';
 
 interface AssociateRow {
   id: string;

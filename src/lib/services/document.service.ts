@@ -72,9 +72,9 @@ export async function uploadDocument(
 // ------------------------------------------------------------
 // Descargar un documento
 // ------------------------------------------------------------
-export async function downloadDocument(documentId: string) {
-  const doc = await prisma.associateDocument.findUnique({
-    where: { id: documentId },
+export async function downloadDocument(documentId: string, associateId: string) {
+  const doc = await prisma.associateDocument.findFirst({
+    where: { id: documentId, associateId },
   });
   if (!doc) throw new Error('Documento no encontrado');
 
@@ -91,9 +91,9 @@ export async function downloadDocument(documentId: string) {
 // ------------------------------------------------------------
 // Eliminar un documento
 // ------------------------------------------------------------
-export async function deleteDocument(documentId: string, performedBy: string) {
-  const doc = await prisma.associateDocument.findUnique({
-    where: { id: documentId },
+export async function deleteDocument(documentId: string, associateId: string, performedBy: string) {
+  const doc = await prisma.associateDocument.findFirst({
+    where: { id: documentId, associateId },
   });
   if (!doc) throw new Error('Documento no encontrado');
 

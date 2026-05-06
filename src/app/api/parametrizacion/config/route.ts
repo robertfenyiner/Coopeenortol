@@ -10,8 +10,8 @@ export async function GET(request: NextRequest) {
   try {
     await requirePermission('system.config');
     const { searchParams } = new URL(request.url);
-    const module = searchParams.get('module') || undefined;
-    const configs = await getSystemConfigs(module);
+    const moduleFilter = searchParams.get('module') || undefined;
+    const configs = await getSystemConfigs(moduleFilter);
     return successResponse(configs);
   } catch (error) {
     return handleApiError(error);

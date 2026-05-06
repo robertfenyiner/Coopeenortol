@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server';
 import { getDocumentsByAssociate, uploadDocument } from '@/lib/services/document.service';
-import { successResponse, handleApiError, requirePermission } from '@/lib/api-helpers';
+import { successResponse, errorResponse, handleApiError, requirePermission } from '@/lib/api-helpers';
 
 // GET: Listar documentos del asociado
 export async function GET(
@@ -35,15 +35,14 @@ export async function POST(
     const documentType = formData.get('documentType') as string | null;
 
     if (!file) {
-      return successResponse(null, 400);
+      return errorResponse('El archivo es requerido', 400);
     }
     if (!documentType) {
-      return successResponse(null, 400);
+      return errorResponse('El tipo de documento es requerido', 400);
     }
 
     // Validar tamaño (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      const { errorResponse } = await import('@/lib/api-helpers');
       return errorResponse('El archivo no debe superar 10MB', 400);
     }
 
@@ -57,7 +56,6 @@ export async function POST(
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ];
     if (!allowedTypes.includes(file.type)) {
-      const { errorResponse } = await import('@/lib/api-helpers');
       return errorResponse('Tipo de archivo no permitido. Use PDF, imágenes, Word o Excel.', 400);
     }
 

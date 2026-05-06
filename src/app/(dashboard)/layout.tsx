@@ -3,6 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   LayoutDashboard,
   Users,
@@ -21,9 +22,11 @@ import {
   Landmark,
   FileSpreadsheet,
   PieChart,
+  Receipt,
 } from 'lucide-react';
 import { useState } from 'react';
 import { SessionProvider } from 'next-auth/react';
+import { NAV_ITEMS } from '@/lib/constants';
 
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard,
@@ -38,6 +41,7 @@ const iconMap: Record<string, React.ElementType> = {
   Landmark,
   FileSpreadsheet,
   PieChart,
+  Receipt,
 };
 
 interface NavItemConfig {
@@ -48,22 +52,7 @@ interface NavItemConfig {
   children?: { label: string; href: string; permission: string }[];
 }
 
-const navItems: NavItemConfig[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard', permission: 'dashboard.view' },
-  { label: 'Usuarios', href: '/usuarios', icon: 'Users', permission: 'users.view' },
-  { label: 'Roles y Permisos', href: '/roles', icon: 'Shield', permission: 'roles.view' },
-  {
-    label: 'Parametrización',
-    href: '/parametrizacion',
-    icon: 'Settings',
-    permission: 'params.view',
-    children: [
-      { label: 'Catálogos', href: '/parametrizacion/catalogos', permission: 'params.view' },
-      { label: 'Configuración', href: '/parametrizacion/configuracion', permission: 'system.config' },
-    ],
-  },
-  { label: 'Auditoría', href: '/auditoria', icon: 'FileSearch', permission: 'audit.view' },
-];
+const navItems = NAV_ITEMS as NavItemConfig[];
 
 function SidebarNav({ permissions }: { permissions: string[] }) {
   const pathname = usePathname();
@@ -178,7 +167,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
-          <img src="/logo-secundario.jpg" alt="Coopeenortol" />
+          <Image src="/logo-secundario.jpg" alt="Coopeenortol" width={44} height={44} />
           <div className="sidebar-brand-text">
             <h2>Coopeenortol</h2>
             <span>Sistema de Gestión</span>
