@@ -54,7 +54,7 @@ async function runTests() {
   // 1. LOGIN
   // ========================================
   console.log('📋 1. LOGIN');
-  const loginRes = await req('POST', '/api/auth/callback/credentials', {
+  await req('POST', '/api/auth/callback/credentials', {
     email: 'admin@coopeenortol.com',
     password: 'Admin123!',
     csrfToken: '',
@@ -388,7 +388,6 @@ async function runTests() {
   console.log('\n📋 11. PARAMETRIZACIÓN');
   const catalogsRes = await req('GET', '/api/parametrizacion/catalogos');
   assert(catalogsRes.data?.success === true, 'Catálogos del sistema accesibles');
-  const catalogs = catalogsRes.data?.data?.data || [];
   const catalogsTotal = catalogsRes.data?.data?.total || 0;
   assert(catalogsTotal >= 11, `${catalogsTotal} catálogos del sistema`);
 

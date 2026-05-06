@@ -9,7 +9,7 @@ import { successResponse, handleApiError, requirePermission } from '@/lib/api-he
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requirePermission('associates.view');
+    await requirePermission('associates.view');
     const { searchParams } = new URL(request.url);
 
     const data = await getAssociates({

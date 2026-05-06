@@ -17,6 +17,7 @@ declare module 'next-auth' {
       lastName: string;
       roles: string[];
       permissions: string[];
+      emailVerified: Date | null;
     };
   }
   interface User {
@@ -104,7 +105,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       session.user = {
         id: token.id as string,
         email: token.email as string,
@@ -113,7 +113,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         roles: token.roles as string[],
         permissions: token.permissions as string[],
         emailVerified: null,
-      } as any;
+      };
       return session;
     },
   },

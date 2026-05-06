@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Save, ArrowLeft, Edit, History, UserCheck, UserX, AlertCircle, Plus, Trash2, User, MapPin, Briefcase, Heart, Clock, Wallet, Landmark, DollarSign, TrendingUp, FileText, Upload, Download } from 'lucide-react';
+import { Save, ArrowLeft, Edit, UserCheck, AlertCircle, Plus, Trash2, User, MapPin, Briefcase, Heart, Clock, Wallet, Landmark, DollarSign, TrendingUp, FileText, Upload, Download } from 'lucide-react';
 
 interface PersonData {
   id: string;
@@ -126,7 +126,6 @@ export default function AsociadoDetallePage({ params }: { params: Promise<{ id: 
   const [documentTypes, setDocumentTypes] = useState<CatalogItem[]>([]);
   const [genders, setGenders] = useState<CatalogItem[]>([]);
   const [maritalStatuses, setMaritalStatuses] = useState<CatalogItem[]>([]);
-  const [relationships, setRelationships] = useState<CatalogItem[]>([]);
   const [housingTypes, setHousingTypes] = useState<CatalogItem[]>([]);
 
   // Formulario editable
@@ -256,7 +255,6 @@ export default function AsociadoDetallePage({ params }: { params: Promise<{ id: 
               case 'TIPO_DOCUMENTO': setDocumentTypes(items); break;
               case 'GENERO': setGenders(items); break;
               case 'ESTADO_CIVIL': setMaritalStatuses(items); break;
-              case 'PARENTESCO': setRelationships(items); break;
               case 'TIPO_VIVIENDA': setHousingTypes(items); break;
             }
           }

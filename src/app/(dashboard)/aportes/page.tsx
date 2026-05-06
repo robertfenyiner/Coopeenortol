@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, DollarSign, Calendar, Filter, Eye, Ban } from 'lucide-react';
+import { Search, Plus, DollarSign, Calendar, Filter, Ban } from 'lucide-react';
 
 interface ContributionRow {
   id: string;

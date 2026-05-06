@@ -3,7 +3,7 @@
 // ============================================================
 
 import { NextRequest } from 'next/server';
-import { getRoles, createRole, getAllPermissions } from '@/lib/services/role.service';
+import { getRoles, createRole } from '@/lib/services/role.service';
 import { createRoleSchema } from '@/lib/validations/schemas';
 import { successResponse, handleApiError, requirePermission } from '@/lib/api-helpers';
 

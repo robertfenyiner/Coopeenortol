@@ -6,7 +6,7 @@ import { NextRequest } from 'next/server';
 import { getReceipts } from '@/lib/services/receipt.service';
 import { createBatchContributions } from '@/lib/services/contribution.service';
 import { createBatchContributionSchema } from '@/lib/validations/schemas';
-import { successResponse, handleApiError, requirePermission, validationErrorResponse } from '@/lib/api-helpers';
+import { successResponse, handleApiError, requirePermission, validationError } from '@/lib/api-helpers';
 import { AUDIT_ACTIONS, MODULES } from '@/lib/constants';
 import { createAuditLog } from '@/lib/services/audit.service';
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const parsed = createBatchContributionSchema.safeParse(body);
-    if (!parsed.success) return validationErrorResponse(parsed.error);
+    if (!parsed.success) return validationError(parsed.error);
 
     const { contributions, paymentMethod, reference, observations } = parsed.data;
 

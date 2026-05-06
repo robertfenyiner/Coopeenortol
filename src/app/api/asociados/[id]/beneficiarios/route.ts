@@ -5,7 +5,7 @@
 import { NextRequest } from 'next/server';
 import { addBeneficiary, removeBeneficiary } from '@/lib/services/associate.service';
 import { beneficiarySchema } from '@/lib/validations/schemas';
-import { successResponse, handleApiError, requirePermission } from '@/lib/api-helpers';
+import { successResponse, errorResponse, handleApiError, requirePermission } from '@/lib/api-helpers';
 import prisma from '@/lib/prisma';
 
 export async function GET(
@@ -45,7 +45,6 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requirePermission('associates.edit');
@@ -53,7 +52,7 @@ export async function DELETE(
     const beneficiaryId = searchParams.get('beneficiaryId');
 
     if (!beneficiaryId) {
-      return successResponse({ error: 'Se requiere beneficiaryId' }, 400);
+      return errorResponse('Se requiere beneficiaryId', 400);
     }
 
     await removeBeneficiary(beneficiaryId, user.id);

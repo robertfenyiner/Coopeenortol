@@ -17,7 +17,8 @@ export async function GET(
     const user = await getUserById(id);
     if (!user) return successResponse(null);
     
-    const { passwordHash: _, ...safeUser } = user;
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+    void _passwordHash;
     return successResponse(safeUser);
   } catch (error) {
     return handleApiError(error);
