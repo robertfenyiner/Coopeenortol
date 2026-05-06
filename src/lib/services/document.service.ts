@@ -7,6 +7,7 @@ import { AUDIT_ACTIONS, MODULES } from '@/lib/constants';
 import { createAuditLog } from './audit.service';
 import { getStorageProvider } from '@/lib/storage';
 import crypto from 'crypto';
+import { sendNotificationFromTemplate } from './notification.service';
 
 // ------------------------------------------------------------
 // Listar documentos de un asociado
@@ -43,6 +44,7 @@ export async function uploadDocument(
 
   const storage = getStorageProvider();
   const storageKey = await storage.upload(file, storagePath, mimeType);
+  const checksum = crypto.createHash('sha256').update(file).digest('hex');
 
   const document = await prisma.associateDocument.create({
     data: {
@@ -50,6 +52,9 @@ export async function uploadDocument(
       documentType,
       fileName,
       filePath: storageKey,
+      storageProvider: storage.getProviderName(),
+      storageBucket: storage.getBucketName(),
+      checksum,
       fileSize: file.length,
       mimeType,
       uploadedBy,
@@ -64,6 +69,17 @@ export async function uploadDocument(
     entityId: document.id,
     dataAfter: { fileName, documentType, fileSize: file.length },
     details: `Documento subido: ${fileName} (${documentType}) - ${associate.person.firstName} ${associate.person.lastName}`,
+  });
+
+  await sendNotificationFromTemplate({
+    templateCode: 'DOCUMENT_UPLOADED_EMAIL',
+    recipient: associate.person.email || '',
+    variables: {
+      firstName: associate.person.firstName,
+      fileName,
+      documentType,
+    },
+    createdBy: uploadedBy,
   });
 
   return document;

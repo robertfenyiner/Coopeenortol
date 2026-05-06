@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { AUDIT_ACTIONS, MODULES } from '@/lib/constants';
 import { createAuditLog } from './audit.service';
 import { CreateContributionInput } from '@/lib/validations/schemas';
+import { ACCOUNTING_EVENTS, postSimpleRuleEntry } from './accounting.service';
 
 // ------------------------------------------------------------
 // Generar número de recibo correlativo
@@ -206,6 +207,18 @@ export async function createContribution(input: CreateContributionInput, created
     details: `Aporte ${input.type}: $${input.amount.toLocaleString()} - ${associate.person.firstName} ${associate.person.lastName} (${associate.associateNumber})`,
   });
 
+  await postSimpleRuleEntry({
+    module: MODULES.CONTRIBUTIONS,
+    event: ACCOUNTING_EVENTS.CONTRIBUTION_APPLIED,
+    amount: input.amount,
+    description: `Aporte ${input.type} - ${associate.associateNumber}`,
+    sourceEntity: 'Contribution',
+    sourceEntityId: contribution.id,
+    associateId: input.associateId,
+    thirdPartyName: `${associate.person.firstName} ${associate.person.lastName}`,
+    createdBy,
+  });
+
   return contribution;
 }
 
@@ -292,6 +305,17 @@ export async function createBatchContributions(
       contributionCount: contributions.length,
     },
     details: `Recibo ${receiptNumber}: $${totalAmount.toLocaleString()} (${contributions.length} aportes)`,
+  });
+
+  await postSimpleRuleEntry({
+    module: MODULES.CONTRIBUTIONS,
+    event: ACCOUNTING_EVENTS.CONTRIBUTION_APPLIED,
+    amount: totalAmount,
+    description: `Recaudo en lote ${receiptNumber}`,
+    sourceEntity: 'PaymentReceipt',
+    sourceEntityId: receipt.id,
+    associateId: contributions[0].associateId,
+    createdBy,
   });
 
   return receipt;

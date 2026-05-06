@@ -5,8 +5,12 @@
 // STORAGE_PROVIDER env var: 'local' | 'google_drive' | 's3' | etc.
 
 import { LocalStorageProvider } from './local.provider';
+import { S3StorageProvider } from './s3.provider';
+import { GoogleDriveStorageProvider } from './google-drive.provider';
 
 export interface StorageProvider {
+  getProviderName(): string;
+  getBucketName(): string | null;
   /** Upload a file and return the storage key */
   upload(file: Buffer, path: string, mimeType: string): Promise<string>;
   /** Download a file by its storage key */
@@ -28,13 +32,12 @@ export function getStorageProvider(): StorageProvider {
     case 'local':
       _provider = new LocalStorageProvider();
       break;
-    // Future providers:
-    // case 'google_drive':
-    //   _provider = new GoogleDriveProvider();
-    //   break;
-    // case 's3':
-    //   _provider = new S3Provider();
-    //   break;
+    case 'google_drive':
+      _provider = new GoogleDriveStorageProvider();
+      break;
+    case 's3':
+      _provider = new S3StorageProvider();
+      break;
     default:
       console.warn(`Unknown storage provider "${providerType}", falling back to local`);
       _provider = new LocalStorageProvider();

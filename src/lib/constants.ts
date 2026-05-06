@@ -42,6 +42,28 @@ export const AUDIT_ACTIONS = {
   CREDIT_REJECT: 'CREDIT_REJECT',
   CREDIT_DISBURSE: 'CREDIT_DISBURSE',
   CREDIT_PAYMENT: 'CREDIT_PAYMENT',
+  // Libranzas
+  PAYROLL_BATCH_CREATE: 'PAYROLL_BATCH_CREATE',
+  PAYROLL_FILE_GENERATE: 'PAYROLL_FILE_GENERATE',
+  PAYROLL_BATCH_SEND: 'PAYROLL_BATCH_SEND',
+  PAYROLL_CONCILIATION: 'PAYROLL_CONCILIATION',
+  // CDATs
+  CDAT_PRODUCT_CREATE: 'CDAT_PRODUCT_CREATE',
+  CDAT_INVESTMENT_CREATE: 'CDAT_INVESTMENT_CREATE',
+  CDAT_INVESTMENT_REDEEM: 'CDAT_INVESTMENT_REDEEM',
+  CDAT_INVESTMENT_CANCEL: 'CDAT_INVESTMENT_CANCEL',
+  // Contabilidad
+  ACCOUNT_CREATE: 'ACCOUNT_CREATE',
+  ACCOUNTING_RULE_CREATE: 'ACCOUNTING_RULE_CREATE',
+  JOURNAL_ENTRY_POST: 'JOURNAL_ENTRY_POST',
+  JOURNAL_ENTRY_VOID: 'JOURNAL_ENTRY_VOID',
+  // Portal asociado
+  PORTAL_ACCESS: 'PORTAL_ACCESS',
+  PORTAL_DOWNLOAD: 'PORTAL_DOWNLOAD',
+  // Integraciones
+  STORAGE_UPLOAD: 'STORAGE_UPLOAD',
+  NOTIFICATION_SEND: 'NOTIFICATION_SEND',
+  NOTIFICATION_TEMPLATE_CREATE: 'NOTIFICATION_TEMPLATE_CREATE',
   // Documentos
   DOCUMENT_UPLOAD: 'DOCUMENT_UPLOAD',
   DOCUMENT_DELETE: 'DOCUMENT_DELETE',
@@ -64,6 +86,11 @@ export const MODULES = {
   CONTRIBUTIONS: 'contributions',
   RECEIPTS: 'receipts',
   CREDITS: 'credits',
+  PAYROLL: 'payroll',
+  CDATS: 'cdats',
+  ACCOUNTING: 'accounting',
+  ASSOCIATE_PORTAL: 'associate_portal',
+  INTEGRATIONS: 'integrations',
   PORTFOLIO: 'portfolio',
   REPORTS: 'reports',
 } as const;
@@ -133,6 +160,36 @@ export const NAV_ITEMS = [
     href: '/creditos',
     icon: 'Landmark',
     permission: 'credits.view',
+  },
+  {
+    label: 'Libranzas',
+    href: '/libranzas',
+    icon: 'FileText',
+    permission: 'payroll.view',
+  },
+  {
+    label: 'CDATs',
+    href: '/cdats',
+    icon: 'PiggyBank',
+    permission: 'cdats.view',
+  },
+  {
+    label: 'Contabilidad',
+    href: '/contabilidad',
+    icon: 'BookOpenCheck',
+    permission: 'accounting.view',
+  },
+  {
+    label: 'Mi Portal',
+    href: '/portal-asociado',
+    icon: 'UserCircle',
+    permission: 'portal.view',
+  },
+  {
+    label: 'Integraciones',
+    href: '/integraciones',
+    icon: 'CloudCog',
+    permission: 'integrations.view',
   },
   {
     label: 'Cartera',

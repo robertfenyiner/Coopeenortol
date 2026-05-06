@@ -232,6 +232,152 @@ export const creditPaymentSchema = z.object({
   observations: z.string().max(500).optional().nullable(),
 });
 
+// ============================================================
+// Payroll Deduction Validation Schemas (Fase A)
+// ============================================================
+
+export const createPayingEntitySchema = z.object({
+  code: z
+    .string()
+    .min(2, 'El código debe tener al menos 2 caracteres')
+    .max(30)
+    .regex(/^[A-Z0-9_]+$/, 'El código debe contener solo mayúsculas, números y guiones bajos'),
+  name: z.string().min(2, 'El nombre es requerido').max(200),
+  nit: z.string().max(30).optional().nullable(),
+  entityType: z.string().min(1, 'El tipo de entidad es requerido').max(30),
+  contactName: z.string().max(150).optional().nullable(),
+  contactEmail: z.string().email('Correo electrónico inválido').optional().nullable().or(z.literal('')),
+  contactPhone: z.string().max(30).optional().nullable(),
+  fileFormat: z.enum(['CSV', 'TXT_FIXED']).default('CSV'),
+  separator: z.string().min(1).max(5).default(';'),
+  encoding: z.string().max(20).default('UTF-8'),
+  paymentCycle: z.string().max(20).default('MENSUAL'),
+  cutoffDay: z.number().int().min(1).max(31).optional().nullable(),
+});
+
+export const createPayrollBatchSchema = z.object({
+  payingEntityId: z.string().uuid('La entidad pagadora es inválida'),
+  periodYear: z.number().int().min(2000).max(2100),
+  periodMonth: z.number().int().min(1).max(12),
+  includeContributions: z.boolean().default(true),
+  includeCredits: z.boolean().default(true),
+  observations: z.string().max(2000).optional().nullable(),
+});
+
+export const reconcilePayrollBatchSchema = z.object({
+  content: z.string().min(1, 'El contenido del archivo es requerido'),
+});
+
+// ============================================================
+// CDAT Validation Schemas (Fase B)
+// ============================================================
+
+export const createCdatProductSchema = z.object({
+  code: z
+    .string()
+    .min(2, 'El código debe tener al menos 2 caracteres')
+    .max(30)
+    .regex(/^[A-Z0-9_]+$/, 'El código debe contener solo mayúsculas, números y guiones bajos'),
+  name: z.string().min(2, 'El nombre es requerido').max(150),
+  description: z.string().max(500).optional().nullable(),
+  minAmount: z.number().positive('El monto mínimo debe ser mayor a 0'),
+  maxAmount: z.number().positive().optional().nullable(),
+  minTermDays: z.number().int().min(1),
+  maxTermDays: z.number().int().min(1).optional().nullable(),
+  annualRate: z.number().min(0).max(100),
+  interestMode: z.enum(['SIMPLE', 'COMPOUND']).default('SIMPLE'),
+  paymentFrequency: z.enum(['VENCIMIENTO', 'MENSUAL', 'TRIMESTRAL']).default('VENCIMIENTO'),
+  withholdingRate: z.number().min(0).max(100).default(0),
+});
+
+export const createCdatInvestmentSchema = z.object({
+  associateId: z.string().uuid('El asociado es inválido'),
+  productId: z.string().uuid('El producto CDAT es inválido'),
+  principalAmount: z.number().positive('El capital debe ser mayor a 0'),
+  termDays: z.number().int().min(1),
+  startDate: z.string().min(1, 'La fecha de apertura es requerida'),
+  renewalPolicy: z.enum(['NO_RENUEVA', 'RENUEVA_CAPITAL', 'RENUEVA_CAPITAL_INTERES']).default('NO_RENUEVA'),
+  observations: z.string().max(2000).optional().nullable(),
+});
+
+export const cdatActionSchema = z.object({
+  action: z.enum(['mark_matured', 'redeem', 'cancel']),
+  observations: z.string().max(500).optional().nullable(),
+});
+
+// ============================================================
+// Accounting Validation Schemas (Fase C)
+// ============================================================
+
+export const createChartAccountSchema = z.object({
+  code: z.string().min(2).max(30).regex(/^[0-9.]+$/, 'El código debe ser numérico tipo PUC'),
+  name: z.string().min(2, 'El nombre es requerido').max(180),
+  description: z.string().max(500).optional().nullable(),
+  accountType: z.enum(['ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'GASTO', 'COSTO']),
+  nature: z.enum(['DEBIT', 'CREDIT']),
+  parentId: z.string().uuid().optional().nullable(),
+  level: z.number().int().min(1).max(10).default(1),
+  isMovement: z.boolean().default(true),
+});
+
+export const createAccountingRuleSchema = z.object({
+  code: z.string().min(2).max(60).regex(/^[A-Z0-9_.]+$/),
+  name: z.string().min(2).max(180),
+  module: z.string().min(2).max(50),
+  event: z.string().min(2).max(80),
+  debitAccountId: z.string().uuid(),
+  creditAccountId: z.string().uuid(),
+  description: z.string().max(500).optional().nullable(),
+});
+
+export const journalLineSchema = z.object({
+  accountId: z.string().uuid(),
+  associateId: z.string().uuid().optional().nullable(),
+  description: z.string().max(500).optional().nullable(),
+  debit: z.number().min(0).default(0),
+  credit: z.number().min(0).default(0),
+  thirdPartyName: z.string().max(200).optional().nullable(),
+});
+
+export const createJournalEntrySchema = z.object({
+  entryDate: z.string().optional().nullable(),
+  description: z.string().min(3).max(500),
+  sourceModule: z.string().max(50).optional().nullable(),
+  sourceEvent: z.string().max(80).optional().nullable(),
+  sourceEntity: z.string().max(80).optional().nullable(),
+  sourceEntityId: z.string().max(80).optional().nullable(),
+  lines: z.array(journalLineSchema).min(2, 'Debe incluir al menos dos líneas'),
+});
+
+// ============================================================
+// Associate Portal Validation Schemas (Fase D)
+// ============================================================
+
+export const portalCreditSimulationSchema = z.object({
+  amount: z.number().positive('El monto debe ser mayor a 0'),
+  annualRate: z.number().min(0).max(100),
+  termMonths: z.number().int().min(1).max(360),
+});
+
+// ============================================================
+// Integrations Validation Schemas (Fase E)
+// ============================================================
+
+export const createNotificationTemplateSchema = z.object({
+  code: z.string().min(2).max(80).regex(/^[A-Z0-9_]+$/),
+  name: z.string().min(2).max(150),
+  channel: z.enum(['EMAIL', 'WHATSAPP']),
+  subject: z.string().max(200).optional().nullable(),
+  body: z.string().min(1),
+});
+
+export const sendNotificationSchema = z.object({
+  channel: z.enum(['EMAIL', 'WHATSAPP']),
+  recipient: z.string().min(3).max(255),
+  subject: z.string().max(200).optional().nullable(),
+  body: z.string().min(1),
+});
+
 // Type exports
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -252,3 +398,15 @@ export type CreateCreditInput = z.infer<typeof createCreditSchema>;
 export type ApproveCreditInput = z.infer<typeof approveCreditSchema>;
 export type RejectCreditInput = z.infer<typeof rejectCreditSchema>;
 export type CreditPaymentInput = z.infer<typeof creditPaymentSchema>;
+export type CreatePayingEntityInput = z.infer<typeof createPayingEntitySchema>;
+export type CreatePayrollBatchInput = z.infer<typeof createPayrollBatchSchema>;
+export type ReconcilePayrollBatchInput = z.infer<typeof reconcilePayrollBatchSchema>;
+export type CreateCdatProductInput = z.infer<typeof createCdatProductSchema>;
+export type CreateCdatInvestmentInput = z.infer<typeof createCdatInvestmentSchema>;
+export type CdatActionInput = z.infer<typeof cdatActionSchema>;
+export type CreateChartAccountInput = z.infer<typeof createChartAccountSchema>;
+export type CreateAccountingRuleInput = z.infer<typeof createAccountingRuleSchema>;
+export type CreateJournalEntryInput = z.infer<typeof createJournalEntrySchema>;
+export type PortalCreditSimulationInput = z.infer<typeof portalCreditSimulationSchema>;
+export type CreateNotificationTemplateInput = z.infer<typeof createNotificationTemplateSchema>;
+export type SendNotificationInput = z.infer<typeof sendNotificationSchema>;

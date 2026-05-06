@@ -1,203 +1,247 @@
-# CoopManager — Sistema de Gestión Cooperativa
+# CoopManager
 
-Sistema web para la gestión integral de cooperativas de ahorro y crédito.  
-Desarrollado con **Next.js 16**, **Prisma ORM**, **PostgreSQL** y **NextAuth.js**.
+Sistema web enterprise para la gestion integral de una cooperativa de asociados de profesores.
 
----
+CoopManager esta construido con Next.js 16, React 19, TypeScript, Prisma ORM, PostgreSQL, NextAuth.js v5 beta, Zod y una capa de servicios de negocio aislada en `src/lib/services`.
 
-## 🚀 Tecnologías
+## Stack
 
-| Categoría | Tecnología |
-|-----------|-----------|
-| Frontend | Next.js 16 (App Router), React 19, TypeScript |
-| Backend | Next.js API Routes, Prisma ORM |
-| Base de Datos | PostgreSQL 16 |
-| Autenticación | NextAuth.js (credenciales + RBAC) |
-| Validación | Zod |
-| Estilos | CSS Variables + diseño propio |
+| Capa | Tecnologia |
+| --- | --- |
+| Frontend | Next.js 16 App Router, React 19, TypeScript |
+| Backend | Route Handlers de Next.js, servicios TypeScript |
+| Base de datos | PostgreSQL, Prisma ORM |
+| Seguridad | NextAuth.js, RBAC, auditoria |
+| Validacion | Zod |
+| UI | CSS variables, Tailwind-compatible styling, lucide-react |
+| Storage | Local, AWS S3, Google Drive |
+| Notificaciones | Email HTTP API, WhatsApp Meta Cloud API |
 
-## 📦 Requisitos
+## Requisitos
 
 - Node.js 18+
-- Docker y Docker Compose (para PostgreSQL)
+- PostgreSQL 16 o Docker/Docker Compose
+- npm
 
-## ⚡ Instalación
+## Instalacion local
 
 ```bash
-# 1. Clonar el repositorio
-git clone <repo-url> && cd coopmanager
-
-# 2. Instalar dependencias
 npm install
-
-# 3. Copiar variables de entorno
 cp .env.example .env
-
-# 4. Levantar PostgreSQL
 docker-compose up -d
-
-# 5. Ejecutar migraciones
-npx prisma migrate dev --name init
-
-# 6. Poblar base de datos
+npx prisma migrate dev
 npx prisma db seed
-
-# 7. Iniciar servidor de desarrollo
 npm run dev
 ```
 
-Acceder a: **http://localhost:3000**
+Acceso local:
 
-### Credenciales por defecto
+```text
+http://localhost:3000
+```
 
-| Usuario | Contraseña |
-|---------|-----------|
+Credenciales de seed:
+
+| Usuario | Password |
+| --- | --- |
 | admin@coopeenortol.com | Admin123! |
 
----
+## Variables de entorno
 
-## 📋 Módulos
+Las variables minimas estan documentadas en `.env.example`.
 
-### Fase 1 — Administración
-- **Usuarios**: CRUD completo, activación/desactivación, asignación de roles
-- **Roles y Permisos**: RBAC con 31 permisos granulares y 7 roles predefinidos
-- **Parametrización**: Catálogos del sistema y configuración global
-- **Auditoría**: Registro completo de todas las acciones del sistema
+Storage soportado:
 
-### Fase 2 — Asociados
-- Registro de personas con datos demográficos, contacto y laborales
-- Generación automática de número de asociado (`ASO-YYYY-NNNN`)
-- Flujo de estados: Pendiente → Activo → Inactivo/Suspendido/Retirado
-- Gestión de beneficiarios con porcentajes
-- Historial de cambios del asociado
+- `STORAGE_PROVIDER=local`
+- `STORAGE_PROVIDER=s3`
+- `STORAGE_PROVIDER=google_drive`
 
-### Fase 3 — Aportes y Recaudos
-- Aportes individuales y en lote (ordinarios, extraordinarios, cuota de ingreso)
-- Cuenta de ahorros automática por asociado
-- Generación automática de recibo (`REC-YYYY-NNNN`)
-- Anulación de aportes con reversión de saldo
+Notificaciones:
 
-### Fase 4 — Créditos
-- Solicitud de crédito con simulador de cuota en tiempo real
-- Generación automática de número de crédito (`CRE-YYYY-NNNN`)
-- Aprobación con tabla de amortización (sistema francés, cuota fija)
-- Desembolso y registro de pagos
-- Flujo: Solicitud → Aprobado → Vigente → Pagado
+- Email real se activa con `EMAIL_ENABLED=true` y `EMAIL_API_URL`.
+- WhatsApp real se activa con `WHATSAPP_ENABLED=true`, `WHATSAPP_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID`.
+- Si los canales estan apagados, CoopManager registra la notificacion como `OMITIDO`, util para desarrollo local.
 
-### Fase 5 — Dashboard y Reportes
-- Dashboard con KPIs reales: asociados, aportes (variación %), cartera, mora
-- Actividad reciente y accesos rápidos
-- 4 reportes exportables a CSV (asociados, aportes, créditos, cartera vencida)
+## Modulos implementados
 
-### Fase 6 — Gestión de Cartera
-- Índice de mora en tiempo real
-- Clasificación por antigüedad (aging: 1-30, 31-60, 61-90, 90+ días)
-- Barra de calidad de cartera
-- Tabla de créditos con cuotas vencidas y días de mora
-- Últimos pagos recibidos
+### Core
 
-### Fase 7 — Perfil de Usuario
-- Edición de datos personales
-- Cambio de contraseña con validación
-- Visualización de roles y permisos asignados
+- Seguridad, login, sesiones y RBAC granular.
+- Usuarios, roles y permisos.
+- Auditoria de acciones criticas.
+- Parametrizacion de catalogos y configuracion global.
+- Dashboard con KPIs operativos.
+- Perfil de usuario.
 
-### Fase 8 — Documentos y Adjuntos *(en progreso)*
-- Almacenamiento de documentos por asociado (cédula, solicitudes, pagarés, etc.)
-- Capa de abstracción `StorageProvider` (local ahora → Google Drive/OneDrive/S3 en el futuro)
-- API de subida, descarga y eliminación de archivos
-- Tab "Documentos" en detalle de asociado
-- Validación de tipo (PDF, imágenes, Word, Excel) y tamaño (máx. 10MB)
+### Personas y asociados
 
-### Fase 9 — Recaudos e Ingresos *(en progreso)*
-- Recaudos en lote: múltiples aportes de múltiples asociados en un solo recibo
-- Generación automática de número de recibo (`REC-YYYY-NNNN`)
-- Listado de recibos con búsqueda y paginación
-- Detalle de recibo con desglose de aportes
-- Anulación de recibos con reversión automática de saldos
+- CRUD de personas y asociados.
+- Beneficiarios.
+- Documentos por asociado.
+- Numeracion automatica de asociado.
+- Estados operativos del asociado.
 
----
+### Aportes, ahorros y recaudos
 
-## 🛡️ Seguridad
+- Aportes ordinarios, extraordinarios y cuota de ingreso.
+- Cuenta de ahorros por asociado.
+- Recaudos individuales y en lote.
+- Recibos con numeracion automatica.
+- Anulaciones con reversion de saldos.
 
-- Contraseñas hasheadas con bcrypt (12 rounds)
-- Bloqueo por intentos fallidos de login (5 intentos → 15 min)
-- RBAC con permisos granulares por módulo y acción
-- Middleware de protección de rutas
-- Registro de auditoría automático
+### Creditos y cartera
 
-## 🗃️ Estructura del Proyecto
+- Solicitud de credito.
+- Simulador de cuota.
+- Tabla de amortizacion.
+- Aprobacion, desembolso y pagos.
+- Cartera, mora y aging.
 
-```
+### Fase A: Libranzas y archivos planos
+
+- Entidades pagadoras: Secretaria de Educacion, colegios u otros pagadores.
+- Lotes de libranza para descuentos por nomina.
+- Detalle por asociado y concepto.
+- Generacion de archivo plano.
+- Conciliacion de pagos de nomina.
+- APIs protegidas por RBAC y servicios en `src/lib/services`.
+
+Rutas principales:
+
+- `/libranzas`
+- `/api/entidades-pagadoras`
+- `/api/libranzas`
+
+### Fase B: CDATs
+
+- Productos CDAT parametrizables.
+- Inversiones a plazo con tasa, plazo, fecha de vencimiento y capital.
+- Calculo de intereses.
+- Movimientos de apertura, causacion, cancelacion y renovacion.
+- APIs y UI protegidas.
+
+Rutas principales:
+
+- `/cdats`
+- `/api/cdat-productos`
+- `/api/cdats`
+
+### Fase C: Contabilidad integrada
+
+- Plan de cuentas.
+- Reglas contables por evento de negocio.
+- Asientos contables automaticos.
+- Lineas debito/credito balanceadas.
+- Integracion automatica desde aportes, creditos y CDATs.
+
+Rutas principales:
+
+- `/contabilidad`
+- `/api/contabilidad/cuentas`
+- `/api/contabilidad/reglas`
+- `/api/contabilidad/asientos`
+
+### Fase D: Portal del asociado
+
+- Relacion entre usuario y asociado.
+- Resumen de aportes, creditos, CDATs y documentos.
+- Descarga de extracto.
+- Generacion de certificado.
+- Simulador de credito de autogestion.
+- Rol `ASSOCIATE` y permisos especificos de portal.
+
+Rutas principales:
+
+- `/portal-asociado`
+- `/api/portal-asociado/resumen`
+- `/api/portal-asociado/extracto`
+- `/api/portal-asociado/certificado`
+- `/api/portal-asociado/simulador`
+
+### Fase E: Cloud storage y notificaciones
+
+- Abstraccion `StorageProvider` extendida.
+- Proveedor local.
+- Proveedor AWS S3 con firma SigV4 nativa.
+- Proveedor Google Drive por API REST.
+- Metadatos de almacenamiento en documentos: proveedor, bucket y checksum.
+- Plantillas de notificacion.
+- Logs de notificacion.
+- Envio manual desde UI.
+- Notificacion automatica al cargar documentos.
+- Estado operativo de storage, email y WhatsApp.
+
+Rutas principales:
+
+- `/integraciones`
+- `/api/integraciones/estado`
+- `/api/integraciones/plantillas`
+- `/api/integraciones/notificaciones`
+
+## Estructura
+
+```text
 src/
-├── app/
-│   ├── (dashboard)/          # Páginas protegidas
-│   │   ├── dashboard/        # Dashboard con KPIs
-│   │   ├── usuarios/         # CRUD usuarios
-│   │   ├── roles/            # Gestión de roles
-│   │   ├── parametrizacion/  # Catálogos y config
-│   │   ├── asociados/        # Gestión de asociados + documentos
-│   │   ├── aportes/          # Registro de aportes
-│   │   ├── recaudos/         # Recaudos en lote + recibos
-│   │   ├── creditos/         # Gestión de créditos
-│   │   ├── cartera/          # Gestión de cartera
-│   │   ├── reportes/         # Reportes CSV
-│   │   ├── perfil/           # Perfil de usuario
-│   │   └── auditoria/        # Logs de auditoría
-│   ├── api/                  # API Routes
-│   └── login/                # Autenticación
-├── lib/
-│   ├── services/             # Lógica de negocio
-│   ├── storage/              # Abstracción de almacenamiento
-│   ├── validations/          # Esquemas Zod
-│   ├── auth.ts               # Configuración NextAuth
-│   ├── prisma.ts             # Cliente Prisma
-│   ├── api-helpers.ts        # Utilidades API
-│   └── constants.ts          # Constantes del sistema
-└── prisma/
-    ├── schema.prisma          # Modelos de datos
-    └── seed.ts                # Datos iniciales
+  app/
+    (dashboard)/
+      aportes/
+      asociados/
+      cartera/
+      cdats/
+      contabilidad/
+      creditos/
+      dashboard/
+      integraciones/
+      libranzas/
+      portal-asociado/
+      recaudos/
+    api/
+      cdats/
+      contabilidad/
+      integraciones/
+      libranzas/
+      portal-asociado/
+  lib/
+    services/
+    storage/
+    validations/
+    auth.ts
+    constants.ts
+    prisma.ts
+prisma/
+  migrations/
+  schema.prisma
+  seed.ts
 ```
 
-## 📊 Resumen
+## Scripts utiles
 
-- **50+ rutas** (28+ API + 22+ páginas)
-- **~20 modelos** Prisma
-- **34 permisos** granulares
-- **7 roles** predefinidos
-- **8 servicios** de negocio
+```bash
+npm run dev
+npm run build
+npm run lint
+npx tsc --noEmit
+npx prisma generate
+npx prisma migrate dev
+npx prisma db seed
+```
 
----
+## Validacion de entrega
 
-## 📋 Estado del Proyecto y Pendientes
+Ultima validacion ejecutada para las fases A-E:
 
-### ✅ Implementado
-| Módulo | Estado |
-|--------|--------|
-| Autenticación y Seguridad | ✅ Completo |
-| Usuarios y RBAC | ✅ Completo |
-| Parametrización | ✅ Completo |
-| Auditoría | ✅ Completo |
-| Personas y Asociados | ✅ Completo |
-| Aportes y Ahorros | ✅ Completo |
-| Créditos | ✅ Completo |
-| Cartera | ✅ Completo |
-| Dashboard y Reportes | ✅ Completo |
-| Perfil de Usuario | ✅ Completo |
-| E2E Test (12 módulos) | ✅ Completo e idempotente |
-| Documentos y Adjuntos | 🔄 Backend + API listo, frontend (tab) listo — falta integrar ícono sidebar |
-| Recaudos e Ingresos | 🔄 Backend + API + páginas listas — falta integrar ícono sidebar |
+```text
+npx prisma migrate dev --skip-generate
+npx prisma db seed
+npx tsc --noEmit
+npm run lint
+npm run build
+```
 
-### ❌ Pendiente por Implementar
-| # | Funcionalidad | Prioridad |
-|---|---------------|-----------|
-| 1 | Integrar ícono "Receipt" en sidebar layout | 🟢 Menor |
-| 2 | Filtro `status=ACTIVO` en API asociados (para búsqueda en recaudos) | 🟢 Menor |
-| 3 | Actualizar E2E test con pasos 13 (Documentos) y 14 (Recaudos) | 🟡 Media |
-| 4 | Cloud storage providers (Google Drive, OneDrive, S3) | 🟡 Media |
-| 5 | Notificaciones (alertas de mora, vencimientos) | 🟡 Media |
-| 6 | Créditos avanzados (capacidad de pago, garantías, refinanciación) | 🟡 Media |
-| 7 | Cartera avanzada (acuerdos de pago, cartera castigada) | 🟡 Media |
-| 8 | Reportes avanzados (Excel/PDF) | 🟡 Media |
-| 9 | Multiempresa / Multisede | 🔴 Alta complejidad |
-| 10 | Dockerfile + CI/CD para producción | 🟡 Media |
-| 11 | Portal del Asociado (autoconsulta) | 🔵 Futuro |
+## Pendientes sugeridos
+
+- Fondos de bienestar y solidaridad.
+- Asambleas, quorum y votaciones seguras.
+- Reportes avanzados en Excel/PDF.
+- CI/CD y Dockerfile de produccion.
+- Configuracion de proveedores reales de email, WhatsApp, S3 o Google Drive por ambiente.

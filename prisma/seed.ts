@@ -50,6 +50,31 @@ async function main() {
     { module: 'credits', action: 'edit', code: 'credits.edit', description: 'Gestionar créditos (aprobar, rechazar, desembolsar, pagos)' },
     { module: 'credits', action: 'approve', code: 'credits.approve', description: 'Aprobar créditos' },
     { module: 'credits', action: 'disburse', code: 'credits.disburse', description: 'Desembolsar créditos' },
+    // Payroll deductions
+    { module: 'payroll', action: 'view', code: 'payroll.view', description: 'Ver libranzas' },
+    { module: 'payroll', action: 'create', code: 'payroll.create', description: 'Crear lotes de libranza' },
+    { module: 'payroll', action: 'generate', code: 'payroll.generate', description: 'Generar archivos planos de libranza' },
+    { module: 'payroll', action: 'send', code: 'payroll.send', description: 'Marcar lotes de libranza como enviados' },
+    { module: 'payroll', action: 'reconcile', code: 'payroll.reconcile', description: 'Conciliar pagos de libranza' },
+    { module: 'paying_entities', action: 'manage', code: 'paying_entities.manage', description: 'Gestionar entidades pagadoras' },
+    // CDATs
+    { module: 'cdats', action: 'view', code: 'cdats.view', description: 'Ver CDATs' },
+    { module: 'cdats', action: 'create', code: 'cdats.create', description: 'Constituir CDATs' },
+    { module: 'cdats', action: 'manage', code: 'cdats.manage', description: 'Gestionar productos CDAT' },
+    { module: 'cdats', action: 'redeem', code: 'cdats.redeem', description: 'Liquidar o cancelar CDATs' },
+    // Accounting
+    { module: 'accounting', action: 'view', code: 'accounting.view', description: 'Ver contabilidad' },
+    { module: 'accounting', action: 'manage', code: 'accounting.manage', description: 'Gestionar plan de cuentas y reglas' },
+    { module: 'accounting', action: 'post', code: 'accounting.post', description: 'Registrar asientos contables' },
+    { module: 'accounting', action: 'export', code: 'accounting.export', description: 'Exportar contabilidad' },
+    // Associate Portal
+    { module: 'portal', action: 'view', code: 'portal.view', description: 'Ver portal del asociado' },
+    { module: 'portal', action: 'download', code: 'portal.download', description: 'Descargar certificados y extractos' },
+    { module: 'portal', action: 'simulate', code: 'portal.simulate', description: 'Simular créditos en portal' },
+    // Integrations
+    { module: 'integrations', action: 'view', code: 'integrations.view', description: 'Ver integraciones' },
+    { module: 'integrations', action: 'manage', code: 'integrations.manage', description: 'Gestionar integraciones' },
+    { module: 'notifications', action: 'send', code: 'notifications.send', description: 'Enviar notificaciones' },
     // Contributions
     { module: 'contributions', action: 'view', code: 'contributions.view', description: 'Ver aportes' },
     { module: 'contributions', action: 'create', code: 'contributions.create', description: 'Registrar aportes' },
@@ -85,6 +110,9 @@ async function main() {
     'dashboard.view', 'users.view', 'params.view',
     'associates.view', 'associates.create', 'associates.edit',
     'contributions.view', 'contributions.create',
+    'payroll.view', 'payroll.create',
+    'cdats.view', 'cdats.create',
+    'accounting.view',
   ];
   const adminPermCodes = allPermCodes.filter((c) => c !== 'system.manage');
   const creditPermCodes = [
@@ -93,12 +121,20 @@ async function main() {
   ];
   const portfolioPermCodes = [
     'dashboard.view', 'portfolio.view', 'portfolio.manage',
-    'credits.view', 'associates.view', 'contributions.view', 'reports.view',
+    'credits.view', 'associates.view', 'contributions.view', 'payroll.view', 'payroll.reconcile', 'reports.view',
   ];
   const treasuryPermCodes = [
     'dashboard.view', 'credits.view', 'credits.disburse', 'credits.edit',
     'contributions.view', 'contributions.create', 'contributions.edit',
-    'portfolio.view', 'associates.view', 'reports.view',
+    'portfolio.view', 'associates.view',
+    'payroll.view', 'payroll.create', 'payroll.generate', 'payroll.send', 'payroll.reconcile', 'paying_entities.manage',
+    'cdats.view', 'cdats.create', 'cdats.manage', 'cdats.redeem',
+    'accounting.view', 'accounting.manage', 'accounting.post', 'accounting.export',
+    'integrations.view', 'integrations.manage', 'notifications.send',
+    'reports.view',
+  ];
+  const associatePermCodes = [
+    'portal.view', 'portal.download', 'portal.simulate',
   ];
 
   const rolesData = [
@@ -109,6 +145,7 @@ async function main() {
     { code: 'OPERATOR', name: 'Auxiliar Operativo', description: 'Registro de asociados y movimientos', permCodes: operatorPermCodes },
     { code: 'TREASURY', name: 'Tesorería / Caja', description: 'Recaudos y desembolsos', permCodes: treasuryPermCodes },
     { code: 'AUDITOR', name: 'Revisor / Auditor', description: 'Consulta de auditoría y reportes', permCodes: viewPermCodes },
+    { code: 'ASSOCIATE', name: 'Asociado', description: 'Autogestión del asociado', permCodes: associatePermCodes },
   ];
 
   for (const roleData of rolesData) {
@@ -362,6 +399,9 @@ async function main() {
     { key: 'portfolio.payment_priority', value: 'MORA,INTERES,CAPITAL', type: 'string', module: 'portfolio', description: 'Prioridad de aplicación de pagos' },
     { key: 'contribution.default_amount', value: '50000', type: 'number', module: 'contributions', description: 'Monto de aporte ordinario por defecto' },
     { key: 'contribution.periodicity', value: 'MENSUAL', type: 'string', module: 'contributions', description: 'Periodicidad de aportes por defecto' },
+    { key: 'storage.provider', value: process.env.STORAGE_PROVIDER || 'local', type: 'string', module: 'integrations', description: 'Proveedor de almacenamiento activo' },
+    { key: 'notifications.email.enabled', value: process.env.EMAIL_ENABLED || 'false', type: 'boolean', module: 'integrations', description: 'Habilita envío real de emails' },
+    { key: 'notifications.whatsapp.enabled', value: process.env.WHATSAPP_ENABLED || 'false', type: 'boolean', module: 'integrations', description: 'Habilita envío real de WhatsApp' },
   ];
 
   for (const config of configs) {
@@ -372,6 +412,123 @@ async function main() {
     });
   }
   console.log(`  ✅ ${configs.length} configuraciones creadas`);
+
+  // ============================================================
+  // 6. ACCOUNTING BASE PUC & RULES
+  // ============================================================
+  console.log('  🧾 Creando plan de cuentas y reglas contables...');
+
+  const accountsData = [
+    { code: '110505', name: 'Caja general', accountType: 'ACTIVO', nature: 'DEBIT' },
+    { code: '111005', name: 'Bancos nacionales', accountType: 'ACTIVO', nature: 'DEBIT' },
+    { code: '130505', name: 'Cartera créditos asociados', accountType: 'ACTIVO', nature: 'DEBIT' },
+    { code: '210505', name: 'CDATs por pagar asociados', accountType: 'PASIVO', nature: 'CREDIT' },
+    { code: '236505', name: 'Retención en la fuente por pagar', accountType: 'PASIVO', nature: 'CREDIT' },
+    { code: '310505', name: 'Aportes sociales asociados', accountType: 'PATRIMONIO', nature: 'CREDIT' },
+    { code: '421005', name: 'Ingresos por intereses de crédito', accountType: 'INGRESO', nature: 'CREDIT' },
+    { code: '530505', name: 'Gasto intereses CDAT', accountType: 'GASTO', nature: 'DEBIT' },
+  ];
+
+  const accountMap = new Map<string, { id: string }>();
+  for (const account of accountsData) {
+    const saved = await prisma.chartAccount.upsert({
+      where: { code: account.code },
+      update: {
+        name: account.name,
+        accountType: account.accountType,
+        nature: account.nature,
+        isMovement: true,
+        isActive: true,
+      },
+      create: {
+        code: account.code,
+        name: account.name,
+        accountType: account.accountType,
+        nature: account.nature,
+        level: 6,
+        isMovement: true,
+      },
+    });
+    accountMap.set(account.code, saved);
+  }
+
+  const rulesData = [
+    { code: 'CONTRIBUTIONS.CONTRIBUTION_APPLIED', name: 'Aporte aplicado', module: 'contributions', event: 'CONTRIBUTION_APPLIED', debit: '111005', credit: '310505' },
+    { code: 'CREDITS.CREDIT_DISBURSEMENT', name: 'Desembolso de crédito', module: 'credits', event: 'CREDIT_DISBURSEMENT', debit: '130505', credit: '111005' },
+    { code: 'CREDITS.CREDIT_PAYMENT', name: 'Pago de crédito', module: 'credits', event: 'CREDIT_PAYMENT', debit: '111005', credit: '130505' },
+    { code: 'CDATS.CDAT_OPENING', name: 'Apertura de CDAT', module: 'cdats', event: 'CDAT_OPENING', debit: '111005', credit: '210505' },
+    { code: 'CDATS.CDAT_CANCEL', name: 'Cancelación de CDAT', module: 'cdats', event: 'CDAT_CANCEL', debit: '210505', credit: '111005' },
+  ];
+
+  for (const rule of rulesData) {
+    const debitAccount = accountMap.get(rule.debit);
+    const creditAccount = accountMap.get(rule.credit);
+    if (!debitAccount || !creditAccount) continue;
+
+    await prisma.accountingRule.upsert({
+      where: { module_event: { module: rule.module, event: rule.event } },
+      update: {
+        code: rule.code,
+        name: rule.name,
+        debitAccountId: debitAccount.id,
+        creditAccountId: creditAccount.id,
+        isActive: true,
+      },
+      create: {
+        code: rule.code,
+        name: rule.name,
+        module: rule.module,
+        event: rule.event,
+        debitAccountId: debitAccount.id,
+        creditAccountId: creditAccount.id,
+      },
+    });
+  }
+  console.log(`  ✅ ${accountsData.length} cuentas y ${rulesData.length} reglas contables listas`);
+
+  // ============================================================
+  // 7. NOTIFICATION TEMPLATES
+  // ============================================================
+  console.log('  🔔 Creando plantillas de notificación...');
+
+  const notificationTemplates = [
+    {
+      code: 'DOCUMENT_UPLOADED_EMAIL',
+      name: 'Documento cargado',
+      channel: 'EMAIL',
+      subject: 'Documento cargado en CoopManager',
+      body: 'Hola {{firstName}}, tu documento {{fileName}} de tipo {{documentType}} fue cargado correctamente.',
+    },
+    {
+      code: 'CREDIT_PAYMENT_WHATSAPP',
+      name: 'Pago de crédito registrado',
+      channel: 'WHATSAPP',
+      subject: null,
+      body: 'Coopeenortol: recibimos tu pago de crédito por {{amount}}. Referencia {{reference}}.',
+    },
+    {
+      code: 'CDAT_MATURITY_EMAIL',
+      name: 'Vencimiento CDAT',
+      channel: 'EMAIL',
+      subject: 'Tu CDAT está próximo a vencer',
+      body: 'Hola {{firstName}}, tu CDAT {{certificateNumber}} vence el {{maturityDate}}.',
+    },
+  ];
+
+  for (const template of notificationTemplates) {
+    await prisma.notificationTemplate.upsert({
+      where: { code: template.code },
+      update: {
+        name: template.name,
+        channel: template.channel,
+        subject: template.subject,
+        body: template.body,
+        isActive: true,
+      },
+      create: template,
+    });
+  }
+  console.log(`  ✅ ${notificationTemplates.length} plantillas listas`);
 
   console.log('\n🎉 Seed completado exitosamente!');
   console.log('   📧 Login: admin@coopeenortol.com');
