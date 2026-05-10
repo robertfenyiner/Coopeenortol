@@ -1,247 +1,188 @@
-# CoopManager
+# CoopManager - Coopeenortol
 
-Sistema web enterprise para la gestion integral de una cooperativa de asociados de profesores.
+Sistema integral de gestión cooperativa para **Coopeenortol** (Cooperativa de Profesores).
 
-CoopManager esta construido con Next.js 16, React 19, TypeScript, Prisma ORM, PostgreSQL, NextAuth.js v5 beta, Zod y una capa de servicios de negocio aislada en `src/lib/services`.
+## 🚀 Stack Tecnológico
 
-## Stack
+- **Frontend:** Next.js 16 + React 19
+- **Backend:** Next.js API Routes + Prisma ORM
+- **Base de Datos:** PostgreSQL 16
+- **Autenticación:** NextAuth.js v5
+- **Validación:** Zod v4
+- **Despliegue:** Docker + GitHub Actions CI/CD
 
-| Capa | Tecnologia |
-| --- | --- |
-| Frontend | Next.js 16 App Router, React 19, TypeScript |
-| Backend | Route Handlers de Next.js, servicios TypeScript |
-| Base de datos | PostgreSQL, Prisma ORM |
-| Seguridad | NextAuth.js, RBAC, auditoria |
-| Validacion | Zod |
-| UI | CSS variables, Tailwind-compatible styling, lucide-react |
-| Storage | Local, AWS S3, Google Drive |
-| Notificaciones | Email HTTP API, WhatsApp Meta Cloud API |
+## 📦 Módulos Implementados
 
-## Requisitos
+| # | Módulo | Estado |
+|---|--------|--------|
+| 1 | Autenticación, Usuarios, Roles y Permisos | ✅ |
+| 2 | Parametrización y Catálogos | ✅ |
+| 3 | Asociados y Beneficiarios | ✅ |
+| 4 | Aportes y Recaudos | ✅ |
+| 5 | Créditos (básicos + scoring + codeudores + refinanciación) | ✅ |
+| 6 | Libranzas y Entidades Pagadoras | ✅ |
+| 7 | CDATs (Certificados de Depósito) | ✅ |
+| 8 | Contabilidad (PUC, Reglas, Comprobantes) | ✅ |
+| 9 | Portal del Asociado | ✅ |
+| 10 | Notificaciones (Email + WhatsApp) | ✅ |
+| 11 | Fondos Sociales y Bienestar | ✅ |
+| 12 | Reportes PDF/Excel y Certificados Tributarios | ✅ |
+| 13 | Cartera Avanzada (provisiones, acuerdos de pago) | ✅ |
+| 14 | Asambleas y Votaciones | ✅ |
+| 15 | Tesorería y Conciliación Bancaria | ✅ |
+| 16 | Docker + CI/CD | ✅ |
 
-- Node.js 18+
-- PostgreSQL 16 o Docker/Docker Compose
-- npm
+## 🛠️ Desarrollo Local
 
-## Instalacion local
+### Prerrequisitos
+
+- Node.js 20+
+- Docker Desktop (para PostgreSQL)
+
+### Setup rápido
 
 ```bash
+# 1. Clonar el proyecto
+git clone <repo-url> && cd Coopeenortol
+
+# 2. Instalar dependencias
 npm install
+
+# 3. Levantar PostgreSQL con Docker
+docker compose up -d db
+
+# 4. Configurar variables de entorno
 cp .env.example .env
-docker-compose up -d
-npx prisma migrate dev
-npx prisma db seed
+
+# 5. Ejecutar migraciones y seed
+npm run db:migrate
+npm run db:seed
+
+# 6. Iniciar servidor de desarrollo
 npm run dev
 ```
 
-Acceso local:
+La aplicación estará disponible en `http://localhost:3000`.
 
-```text
-http://localhost:3000
-```
+### Credenciales por defecto (seed)
 
-Credenciales de seed:
+| Rol | Email | Contraseña |
+|-----|-------|------------|
+| Super Admin | admin@coopeenortol.com | Admin123! |
 
-| Usuario | Password |
-| --- | --- |
-| admin@coopeenortol.com | Admin123! |
+## 🐳 Docker
 
-## Variables de entorno
-
-Las variables minimas estan documentadas en `.env.example`.
-
-Storage soportado:
-
-- `STORAGE_PROVIDER=local`
-- `STORAGE_PROVIDER=s3`
-- `STORAGE_PROVIDER=google_drive`
-
-Notificaciones:
-
-- Email real se activa con `EMAIL_ENABLED=true` y `EMAIL_API_URL`.
-- WhatsApp real se activa con `WHATSAPP_ENABLED=true`, `WHATSAPP_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID`.
-- Si los canales estan apagados, CoopManager registra la notificacion como `OMITIDO`, util para desarrollo local.
-
-## Modulos implementados
-
-### Core
-
-- Seguridad, login, sesiones y RBAC granular.
-- Usuarios, roles y permisos.
-- Auditoria de acciones criticas.
-- Parametrizacion de catalogos y configuracion global.
-- Dashboard con KPIs operativos.
-- Perfil de usuario.
-
-### Personas y asociados
-
-- CRUD de personas y asociados.
-- Beneficiarios.
-- Documentos por asociado.
-- Numeracion automatica de asociado.
-- Estados operativos del asociado.
-
-### Aportes, ahorros y recaudos
-
-- Aportes ordinarios, extraordinarios y cuota de ingreso.
-- Cuenta de ahorros por asociado.
-- Recaudos individuales y en lote.
-- Recibos con numeracion automatica.
-- Anulaciones con reversion de saldos.
-
-### Creditos y cartera
-
-- Solicitud de credito.
-- Simulador de cuota.
-- Tabla de amortizacion.
-- Aprobacion, desembolso y pagos.
-- Cartera, mora y aging.
-
-### Fase A: Libranzas y archivos planos
-
-- Entidades pagadoras: Secretaria de Educacion, colegios u otros pagadores.
-- Lotes de libranza para descuentos por nomina.
-- Detalle por asociado y concepto.
-- Generacion de archivo plano.
-- Conciliacion de pagos de nomina.
-- APIs protegidas por RBAC y servicios en `src/lib/services`.
-
-Rutas principales:
-
-- `/libranzas`
-- `/api/entidades-pagadoras`
-- `/api/libranzas`
-
-### Fase B: CDATs
-
-- Productos CDAT parametrizables.
-- Inversiones a plazo con tasa, plazo, fecha de vencimiento y capital.
-- Calculo de intereses.
-- Movimientos de apertura, causacion, cancelacion y renovacion.
-- APIs y UI protegidas.
-
-Rutas principales:
-
-- `/cdats`
-- `/api/cdat-productos`
-- `/api/cdats`
-
-### Fase C: Contabilidad integrada
-
-- Plan de cuentas.
-- Reglas contables por evento de negocio.
-- Asientos contables automaticos.
-- Lineas debito/credito balanceadas.
-- Integracion automatica desde aportes, creditos y CDATs.
-
-Rutas principales:
-
-- `/contabilidad`
-- `/api/contabilidad/cuentas`
-- `/api/contabilidad/reglas`
-- `/api/contabilidad/asientos`
-
-### Fase D: Portal del asociado
-
-- Relacion entre usuario y asociado.
-- Resumen de aportes, creditos, CDATs y documentos.
-- Descarga de extracto.
-- Generacion de certificado.
-- Simulador de credito de autogestion.
-- Rol `ASSOCIATE` y permisos especificos de portal.
-
-Rutas principales:
-
-- `/portal-asociado`
-- `/api/portal-asociado/resumen`
-- `/api/portal-asociado/extracto`
-- `/api/portal-asociado/certificado`
-- `/api/portal-asociado/simulador`
-
-### Fase E: Cloud storage y notificaciones
-
-- Abstraccion `StorageProvider` extendida.
-- Proveedor local.
-- Proveedor AWS S3 con firma SigV4 nativa.
-- Proveedor Google Drive por API REST.
-- Metadatos de almacenamiento en documentos: proveedor, bucket y checksum.
-- Plantillas de notificacion.
-- Logs de notificacion.
-- Envio manual desde UI.
-- Notificacion automatica al cargar documentos.
-- Estado operativo de storage, email y WhatsApp.
-
-Rutas principales:
-
-- `/integraciones`
-- `/api/integraciones/estado`
-- `/api/integraciones/plantillas`
-- `/api/integraciones/notificaciones`
-
-## Estructura
-
-```text
-src/
-  app/
-    (dashboard)/
-      aportes/
-      asociados/
-      cartera/
-      cdats/
-      contabilidad/
-      creditos/
-      dashboard/
-      integraciones/
-      libranzas/
-      portal-asociado/
-      recaudos/
-    api/
-      cdats/
-      contabilidad/
-      integraciones/
-      libranzas/
-      portal-asociado/
-  lib/
-    services/
-    storage/
-    validations/
-    auth.ts
-    constants.ts
-    prisma.ts
-prisma/
-  migrations/
-  schema.prisma
-  seed.ts
-```
-
-## Scripts utiles
+### Desarrollo (todo en Docker)
 
 ```bash
-npm run dev
-npm run build
-npm run lint
-npx tsc --noEmit
-npx prisma generate
-npx prisma migrate dev
-npx prisma db seed
+# Levantar app + db
+npm run docker:dev
+
+# Ver logs
+npm run docker:logs
+
+# Detener
+npm run docker:dev:down
 ```
 
-## Validacion de entrega
+### Producción
 
-Ultima validacion ejecutada para las fases A-E:
+```bash
+# 1. Crear archivo de variables
+cp .env.example .env.production
 
-```text
-npx prisma migrate dev --skip-generate
-npx prisma db seed
-npx tsc --noEmit
-npm run lint
-npm run build
+# 2. Editar .env.production con valores reales
+#    Obligatorios: DB_PASSWORD, AUTH_SECRET, APP_URL
+
+# 3. Levantar en producción
+npm run docker:prod
+
+# 4. Verificar salud
+curl http://localhost:3000/api/health
 ```
 
-## Pendientes sugeridos
+### Construcción manual de imagen
 
-- Fondos de bienestar y solidaridad.
-- Asambleas, quorum y votaciones seguras.
-- Reportes avanzados en Excel/PDF.
-- CI/CD y Dockerfile de produccion.
-- Configuracion de proveedores reales de email, WhatsApp, S3 o Google Drive por ambiente.
+```bash
+docker build -t coopmanager .
+```
+
+## 🔄 CI/CD (GitHub Actions)
+
+### Pipeline CI (`.github/workflows/ci.yml`)
+
+Se ejecuta en cada push a `main`/`develop` y en PRs:
+
+1. **Lint & TypeCheck** - ESLint + TypeScript
+2. **Build** - Compilación de Next.js
+3. **Docker Build** - Verifica que la imagen Docker se construye correctamente
+4. **Prisma Validate** - Valida el schema de Prisma
+
+### Pipeline Deploy (`.github/workflows/deploy.yml`)
+
+Se ejecuta en push a `main` o manualmente:
+
+1. **Build & Push** - Construye imagen y la sube a GitHub Container Registry
+2. **Deploy** - Conecta por SSH al servidor y actualiza el servicio
+3. **Health Check** - Verifica que la aplicación responde correctamente
+
+#### Secrets necesarios para Deploy
+
+| Secret | Descripción |
+|--------|-------------|
+| `DEPLOY_HOST` | IP/dominio del servidor |
+| `DEPLOY_USER` | Usuario SSH |
+| `DEPLOY_SSH_KEY` | Llave privada SSH |
+| `DEPLOY_PATH` | Ruta del proyecto en el servidor |
+| `APP_PORT` | Puerto de la aplicación (default: 3000) |
+
+## 📁 Estructura del Proyecto
+
+```
+Coopeenortol/
+├── .github/workflows/      # CI/CD pipelines
+├── prisma/
+│   ├── schema.prisma       # Esquema de base de datos
+│   ├── seed.ts             # Datos iniciales
+│   └── migrations/         # Migraciones SQL
+├── src/
+│   ├── app/
+│   │   ├── (auth)/         # Páginas de login
+│   │   ├── (dashboard)/    # Páginas del dashboard
+│   │   │   ├── tesoreria/  # Módulo de tesorería
+│   │   │   ├── asambleas/  # Módulo de asambleas
+│   │   │   └── ...         # Otros módulos
+│   │   └── api/            # API Routes
+│   ├── lib/
+│   │   ├── services/       # Lógica de negocio
+│   │   ├── validations/    # Schemas Zod
+│   │   ├── constants.ts    # Constantes del sistema
+│   │   ├── prisma.ts       # Cliente Prisma
+│   │   └── auth.ts         # Configuración NextAuth
+│   └── types/              # Tipos TypeScript
+├── Dockerfile              # Multi-stage build
+├── docker-compose.yml      # Desarrollo
+├── docker-compose.prod.yml # Producción
+└── package.json
+```
+
+## 📝 Scripts Disponibles
+
+| Script | Descripción |
+|--------|-------------|
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` | Build de producción |
+| `npm run lint` | Ejecutar ESLint |
+| `npm run typecheck` | Verificar tipos TypeScript |
+| `npm run db:migrate` | Crear/aplicar migraciones (dev) |
+| `npm run db:migrate:deploy` | Aplicar migraciones (prod) |
+| `npm run db:seed` | Ejecutar seed de datos |
+| `npm run db:studio` | Prisma Studio (GUI) |
+| `npm run docker:dev` | Docker desarrollo |
+| `npm run docker:prod` | Docker producción |
+| `npm run docker:build` | Construir imagen Docker |
+| `npm run docker:logs` | Ver logs del contenedor |
+
+## 📄 Licencia
+
+Propiedad de Coopeenortol. Todos los derechos reservados.

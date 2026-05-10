@@ -1,0 +1,94 @@
+# ============================================================
+# CoopManager - Docker Compose (Production)
+# ============================================================
+# Usage: docker compose -f docker-compose.prod.yml up -d
+#
+# Required: Create a .env.production file with real values
+# or pass environment variables at runtime.
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: coopmanager_prod_db
+    restart: always
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-coopmanager}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Database password is required}
+      POSTGRES_DB: ${DB_NAME:-coopmanager_db}
+    volumes:
+      - coopmanager_prod_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-coopmanager} -d ${DB_NAME:-coopmanager_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: coopmanager_prod_app
+    restart: always
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-coopmanager}:${DB_PASSWORD}@db:5432/${DB_NAME:-coopmanager_db}?schema=public"
+      AUTH_SECRET: ${AUTH_SECRET:?Auth secret is required}
+      NEXTAUTH_SECRET: ${AUTH_SECRET}
+      NEXTAUTH_URL: ${APP_URL:?Application URL is required}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+      NODE_ENV: "production"
+      # Email
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      EMAIL_API_URL: ${EMAIL_API_URL:-}
+      EMAIL_API_KEY: ${EMAIL_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-notificaciones@coopeenortol.com}
+      # WhatsApp
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-false}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      # S3
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - coopmanager_prod_uploads:/app/uploads
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: coopmanager_prod_migrate
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-coopmanager}:${DB_PASSWORD}@db:5432/${DB_NAME:-coopmanager_db}?schema=public"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: npx prisma migrate deploy
+    restart: "no"
+
+volumes:
+  coopmanager_prod_pgdata:
+    driver: local
+  coopmanager_prod_uploads:
+    driver: local

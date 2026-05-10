@@ -7,10 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "db:migrate": "npx prisma migrate dev",
+    "db:migrate:deploy": "npx prisma migrate deploy",
     "db:seed": "npx prisma db seed",
     "db:reset": "npx prisma migrate reset",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "docker:dev": "docker compose up -d",
+    "docker:dev:down": "docker compose down",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up -d",
+    "docker:prod:down": "docker compose -f docker-compose.prod.yml down",
+    "docker:build": "docker build -t coopmanager .",
+    "docker:logs": "docker compose logs -f app"
   },
   "prisma": {
     "seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"

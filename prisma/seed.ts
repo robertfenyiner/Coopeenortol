@@ -50,6 +50,9 @@ async function main() {
     { module: 'credits', action: 'edit', code: 'credits.edit', description: 'Gestionar créditos (aprobar, rechazar, desembolsar, pagos)' },
     { module: 'credits', action: 'approve', code: 'credits.approve', description: 'Aprobar créditos' },
     { module: 'credits', action: 'disburse', code: 'credits.disburse', description: 'Desembolsar créditos' },
+    { module: 'credits', action: 'score', code: 'credits.score', description: 'Evaluar scoring de créditos' },
+    { module: 'credits', action: 'manage_advanced', code: 'credits.manage_advanced', description: 'Gestionar codeudores y condiciones avanzadas' },
+    { module: 'credits', action: 'refinance', code: 'credits.refinance', description: 'Refinanciar créditos vigentes o vencidos' },
     // Payroll deductions
     { module: 'payroll', action: 'view', code: 'payroll.view', description: 'Ver libranzas' },
     { module: 'payroll', action: 'create', code: 'payroll.create', description: 'Crear lotes de libranza' },
@@ -82,9 +85,19 @@ async function main() {
     // Portfolio (future)
     { module: 'portfolio', action: 'view', code: 'portfolio.view', description: 'Ver cartera' },
     { module: 'portfolio', action: 'manage', code: 'portfolio.manage', description: 'Gestionar cartera' },
+    { module: 'portfolio', action: 'provision', code: 'portfolio.provision', description: 'Calcular provisiones de cartera' },
+    { module: 'portfolio', action: 'agreements', code: 'portfolio.agreements', description: 'Gestionar acuerdos de pago' },
     // Reports (future)
     { module: 'reports', action: 'view', code: 'reports.view', description: 'Ver reportes' },
     { module: 'reports', action: 'export', code: 'reports.export', description: 'Exportar reportes' },
+    { module: 'reports', action: 'tax_certificate', code: 'reports.tax_certificate', description: 'Generar certificados tributarios' },
+    // Social Funds
+    { module: 'social_funds', action: 'view', code: 'social_funds.view', description: 'Ver fondos sociales y bienestar' },
+    { module: 'social_funds', action: 'manage', code: 'social_funds.manage', description: 'Gestionar fondos sociales y porcentajes de excedentes' },
+    // Assemblies & Voting
+    { module: 'assemblies', action: 'view', code: 'assemblies.view', description: 'Ver asambleas y votaciones' },
+    { module: 'assemblies', action: 'manage', code: 'assemblies.manage', description: 'Gestionar asambleas y votaciones' },
+    { module: 'assemblies', action: 'vote', code: 'assemblies.vote', description: 'Registrar votos en asambleas' },
   ];
 
   console.log('  📋 Creando permisos...');
@@ -105,36 +118,43 @@ async function main() {
   console.log('  🛡️ Creando roles...');
 
   const allPermCodes = permissions.map((p) => p.code);
-  const viewPermCodes = permissions.filter((p) => p.action === 'view' || p.action === 'export').map((p) => p.code);
+  const viewPermCodes = permissions
+    .filter((p) => p.action === 'view' || p.action === 'export' || p.code === 'reports.tax_certificate')
+    .map((p) => p.code);
   const operatorPermCodes = [
     'dashboard.view', 'users.view', 'params.view',
     'associates.view', 'associates.create', 'associates.edit',
     'contributions.view', 'contributions.create',
     'payroll.view', 'payroll.create',
     'cdats.view', 'cdats.create',
+    'social_funds.view',
+    'assemblies.view',
     'accounting.view',
   ];
   const adminPermCodes = allPermCodes.filter((c) => c !== 'system.manage');
   const creditPermCodes = [
-    'dashboard.view', 'credits.view', 'credits.create', 'credits.edit', 'credits.approve',
+    'dashboard.view', 'credits.view', 'credits.create', 'credits.edit', 'credits.approve', 'credits.score', 'credits.manage_advanced',
     'associates.view', 'contributions.view', 'reports.view',
   ];
   const portfolioPermCodes = [
-    'dashboard.view', 'portfolio.view', 'portfolio.manage',
+    'dashboard.view', 'portfolio.view', 'portfolio.manage', 'portfolio.provision', 'portfolio.agreements',
     'credits.view', 'associates.view', 'contributions.view', 'payroll.view', 'payroll.reconcile', 'reports.view',
   ];
   const treasuryPermCodes = [
-    'dashboard.view', 'credits.view', 'credits.disburse', 'credits.edit',
+    'dashboard.view', 'credits.view', 'credits.disburse', 'credits.edit', 'credits.score', 'credits.manage_advanced', 'credits.refinance',
     'contributions.view', 'contributions.create', 'contributions.edit',
-    'portfolio.view', 'associates.view',
+    'portfolio.view', 'portfolio.manage', 'portfolio.provision', 'portfolio.agreements', 'associates.view',
     'payroll.view', 'payroll.create', 'payroll.generate', 'payroll.send', 'payroll.reconcile', 'paying_entities.manage',
     'cdats.view', 'cdats.create', 'cdats.manage', 'cdats.redeem',
+    'social_funds.view', 'social_funds.manage',
+    'assemblies.view', 'assemblies.manage', 'assemblies.vote',
     'accounting.view', 'accounting.manage', 'accounting.post', 'accounting.export',
     'integrations.view', 'integrations.manage', 'notifications.send',
-    'reports.view',
+    'reports.view', 'reports.export', 'reports.tax_certificate',
   ];
   const associatePermCodes = [
     'portal.view', 'portal.download', 'portal.simulate',
+    'assemblies.view', 'assemblies.vote',
   ];
 
   const rolesData = [
@@ -414,7 +434,40 @@ async function main() {
   console.log(`  ✅ ${configs.length} configuraciones creadas`);
 
   // ============================================================
-  // 6. ACCOUNTING BASE PUC & RULES
+  // 6. SOCIAL FUNDS BASE
+  // ============================================================
+  console.log('  Creando fondos sociales base...');
+
+  const socialFundsData = [
+    { code: 'EDUCACION', name: 'Fondo de Educacion', fundType: 'EDUCACION', surplusDistributionPct: 20, description: 'Programas educativos y formacion para asociados' },
+    { code: 'SOLIDARIDAD', name: 'Fondo de Solidaridad', fundType: 'SOLIDARIDAD', surplusDistributionPct: 30, description: 'Auxilios por calamidad, defuncion e incapacidad' },
+    { code: 'BIENESTAR', name: 'Fondo de Bienestar', fundType: 'BIENESTAR', surplusDistributionPct: 20, description: 'Actividades de bienestar social' },
+    { code: 'RESERVA_LEGAL', name: 'Reserva Legal', fundType: 'RESERVA_LEGAL', surplusDistributionPct: 30, description: 'Reserva legal estatutaria' },
+  ];
+
+  for (const fund of socialFundsData) {
+    await prisma.socialFund.upsert({
+      where: { code: fund.code },
+      update: {
+        name: fund.name,
+        description: fund.description,
+        fundType: fund.fundType,
+        surplusDistributionPct: fund.surplusDistributionPct,
+        isActive: true,
+      },
+      create: {
+        code: fund.code,
+        name: fund.name,
+        description: fund.description,
+        fundType: fund.fundType,
+        surplusDistributionPct: fund.surplusDistributionPct,
+      },
+    });
+  }
+  console.log(`  Listos ${socialFundsData.length} fondos sociales base`);
+
+  // ============================================================
+  // 7. ACCOUNTING BASE PUC & RULES
   // ============================================================
   console.log('  🧾 Creando plan de cuentas y reglas contables...');
 
@@ -487,7 +540,7 @@ async function main() {
   console.log(`  ✅ ${accountsData.length} cuentas y ${rulesData.length} reglas contables listas`);
 
   // ============================================================
-  // 7. NOTIFICATION TEMPLATES
+  // 8. NOTIFICATION TEMPLATES
   // ============================================================
   console.log('  🔔 Creando plantillas de notificación...');
 

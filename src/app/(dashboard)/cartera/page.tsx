@@ -1,21 +1,34 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, TrendingDown, DollarSign, CreditCard, Eye, Phone, Clock } from 'lucide-react';
+import {
+  AlertTriangle,
+  Calculator,
+  Clock,
+  CreditCard,
+  DollarSign,
+  Eye,
+  Handshake,
+  Phone,
+  Plus,
+  ShieldAlert,
+  TrendingDown,
+  XCircle,
+} from 'lucide-react';
 
 interface PortfolioData {
   summary: {
     totalActiveCredits: number;
-    totalOverdueCredits: number;
-    totalOutstanding: number;
     totalOverdue: number;
+    totalOutstanding: number;
     healthyBalance: number;
     overduePercent: number;
+    totalProvisionAmount: number;
+    activeAgreements: number;
   };
   aging: Record<string, { count: number; amount: number }>;
   overdueList: Array<{
-    associateId: string;
     associateNumber: string;
     name: string;
     document: string;
@@ -35,228 +48,249 @@ interface PortfolioData {
     paymentMethod: string;
     paymentDate: string;
   }>;
+  provisions: Array<{
+    id: string;
+    creditId: string;
+    creditNumber: string;
+    associateName: string;
+    riskCategory: string;
+    daysOverdue: number;
+    outstandingBalance: number;
+    provisionRate: number;
+    provisionAmount: number;
+  }>;
+  agreements: Array<{
+    id: string;
+    agreementNumber: string;
+    creditId: string;
+    creditNumber: string;
+    associateName: string;
+    agreedAmount: number;
+    installmentAmount: number;
+    installments: number;
+    nextDueDate: string | null;
+  }>;
 }
 
-const AGING_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  '1-30': { label: '1 - 30 días', color: 'var(--warning-600)', bg: 'var(--warning-50)' },
-  '31-60': { label: '31 - 60 días', color: '#ea580c', bg: '#fff7ed' },
-  '61-90': { label: '61 - 90 días', color: 'var(--danger-500)', bg: 'var(--danger-50)' },
-  '90+': { label: '90+ días', color: 'var(--danger-700)', bg: '#fef2f2' },
+const AGING_LABELS: Record<string, { label: string; color: string }> = {
+  '1-30': { label: '1 - 30 dias', color: 'var(--warning-600)' },
+  '31-60': { label: '31 - 60 dias', color: '#ea580c' },
+  '61-90': { label: '61 - 90 dias', color: 'var(--danger-500)' },
+  '90+': { label: '90+ dias', color: 'var(--danger-700)' },
 };
 
 export default function CarteraPage() {
   const router = useRouter();
   const [data, setData] = useState<PortfolioData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [showAgreement, setShowAgreement] = useState(false);
+  const [agreementCreditId, setAgreementCreditId] = useState('');
+  const [agreementAmount, setAgreementAmount] = useState('');
+  const [initialPayment, setInitialPayment] = useState('0');
+  const [installments, setInstallments] = useState('6');
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reason, setReason] = useState('');
 
-  const fmt = (v: number) => `$ ${v.toLocaleString('es-CO')}`;
-  const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' });
+  const fmt = (value: number | string) => `$ ${Number(value).toLocaleString('es-CO')}`;
+  const fmtDate = (value: string) => new Date(value).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' });
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch('/api/cartera');
       const json = await res.json();
       if (json.success) setData(json.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  if (loading) return <div className="loading-center"><div className="loading-spinner"></div></div>;
+  async function calculateProvisions() {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/cartera/provisiones', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) await fetchData();
+      else alert(json.error || 'No se pudieron calcular provisiones');
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
-  const d = data!;
-  const s = d?.summary;
+  function openAgreement(creditId: string, amount: number) {
+    setAgreementCreditId(creditId);
+    setAgreementAmount(String(amount));
+    setInitialPayment('0');
+    setInstallments('6');
+    setStartDate(new Date().toISOString().slice(0, 10));
+    setReason('Acuerdo de normalizacion de cartera');
+    setShowAgreement(true);
+  }
+
+  async function createAgreement() {
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/cartera/acuerdos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creditId: agreementCreditId,
+          agreedAmount: parseFloat(agreementAmount),
+          initialPayment: parseFloat(initialPayment),
+          installments: parseInt(installments, 10),
+          startDate,
+          reason,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setShowAgreement(false);
+        await fetchData();
+      } else {
+        alert(json.error || 'No se pudo crear el acuerdo');
+      }
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  if (loading || !data) return <div className="loading-center"><div className="loading-spinner"></div></div>;
+
+  const s = data.summary;
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Gestión de Cartera</h1>
-          <p className="page-subtitle">Seguimiento de cobros, mora y calidad de cartera</p>
+          <h1 className="page-title">Gestion de Cartera</h1>
+          <p className="page-subtitle">Seguimiento de mora, provisiones y acuerdos de pago</p>
         </div>
+        <button className="btn btn-primary" onClick={calculateProvisions} disabled={actionLoading}>
+          <Calculator size={16} /> Calcular provisiones
+        </button>
       </div>
 
-      {/* KPIs */}
       <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon blue"><CreditCard size={22} /></div>
-          <div>
-            <div className="stat-value">{s?.totalActiveCredits ?? 0}</div>
-            <div className="stat-label">Créditos Activos</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon green"><DollarSign size={22} /></div>
-          <div>
-            <div className="stat-value">{s ? fmt(s.totalOutstanding) : '—'}</div>
-            <div className="stat-label">Cartera Total</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon red"><AlertTriangle size={22} /></div>
-          <div>
-            <div className="stat-value" style={{ color: (s?.totalOverdue ?? 0) > 0 ? 'var(--danger-500)' : undefined }}>
-              {s ? fmt(s.totalOverdue) : '—'}
-            </div>
-            <div className="stat-label">Cartera Vencida</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon amber"><TrendingDown size={22} /></div>
-          <div>
-            <div className="stat-value" style={{ color: (s?.overduePercent ?? 0) > 5 ? 'var(--danger-500)' : 'var(--success-600)' }}>
-              {s?.overduePercent ?? 0}%
-            </div>
-            <div className="stat-label">Índice de Mora</div>
-          </div>
-        </div>
+        <div className="stat-card"><div className="stat-icon blue"><CreditCard size={22} /></div><div><div className="stat-value">{s.totalActiveCredits}</div><div className="stat-label">Creditos activos</div></div></div>
+        <div className="stat-card"><div className="stat-icon green"><DollarSign size={22} /></div><div><div className="stat-value">{fmt(s.totalOutstanding)}</div><div className="stat-label">Cartera total</div></div></div>
+        <div className="stat-card"><div className="stat-icon red"><AlertTriangle size={22} /></div><div><div className="stat-value">{fmt(s.totalOverdue)}</div><div className="stat-label">Cartera vencida</div></div></div>
+        <div className="stat-card"><div className="stat-icon amber"><TrendingDown size={22} /></div><div><div className="stat-value">{s.overduePercent}%</div><div className="stat-label">Indice de mora</div></div></div>
+        <div className="stat-card"><div className="stat-icon red"><ShieldAlert size={22} /></div><div><div className="stat-value">{fmt(s.totalProvisionAmount)}</div><div className="stat-label">Provision vigente</div></div></div>
+        <div className="stat-card"><div className="stat-icon blue"><Handshake size={22} /></div><div><div className="stat-value">{s.activeAgreements}</div><div className="stat-label">Acuerdos activos</div></div></div>
       </div>
 
-      {/* Aging + Pagos recientes */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-        {/* Clasificación de mora */}
         <div className="card">
-          <div className="card-header">
-            <span className="card-title">📊 Clasificación por Antigüedad</span>
-          </div>
+          <div className="card-header"><span className="card-title">Clasificacion por antiguedad</span></div>
           <div className="card-body" style={{ padding: 0 }}>
-            {d && Object.entries(d.aging).map(([range, info]) => {
+            {Object.entries(data.aging).map(([range, info]) => {
               const cfg = AGING_LABELS[range];
               const pct = s.totalOverdue > 0 ? Math.round((info.amount / s.totalOverdue) * 100) : 0;
               return (
                 <div key={range} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderBottom: '1px solid var(--gray-100)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: cfg.color }} />
-                    <div>
-                      <div className="font-semibold text-sm">{cfg.label}</div>
-                      <div className="text-xs text-muted">{info.count} crédito{info.count !== 1 ? 's' : ''}</div>
-                    </div>
+                    <div><div className="font-semibold text-sm">{cfg.label}</div><div className="text-xs text-muted">{info.count} creditos</div></div>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="font-semibold text-sm" style={{ color: cfg.color }}>{fmt(info.amount)}</div>
-                    {info.amount > 0 && <div className="text-xs text-muted">{pct}%</div>}
-                  </div>
+                  <div style={{ textAlign: 'right' }}><div className="font-semibold text-sm" style={{ color: cfg.color }}>{fmt(info.amount)}</div>{info.amount > 0 && <div className="text-xs text-muted">{pct}%</div>}</div>
                 </div>
               );
             })}
-
-            {/* Barra de calidad */}
-            {d && s.totalOutstanding > 0 && (
-              <div style={{ padding: '0.75rem 1rem' }}>
-                <div className="text-xs text-muted" style={{ marginBottom: '4px' }}>Calidad de Cartera</div>
-                <div style={{ display: 'flex', height: '8px', borderRadius: '4px', overflow: 'hidden', background: 'var(--gray-100)' }}>
-                  <div style={{ width: `${100 - s.overduePercent}%`, background: 'var(--success-500)', transition: 'width 0.3s' }} />
-                  <div style={{ width: `${s.overduePercent}%`, background: 'var(--danger-500)', transition: 'width 0.3s' }} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                  <span className="text-xs" style={{ color: 'var(--success-600)' }}>Al día: {fmt(s.healthyBalance)}</span>
-                  <span className="text-xs" style={{ color: 'var(--danger-500)' }}>Vencida: {fmt(s.totalOverdue)}</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Últimos pagos */}
         <div className="card">
-          <div className="card-header">
-            <span className="card-title">💰 Últimos Pagos Recibidos</span>
-          </div>
+          <div className="card-header"><span className="card-title">Ultimos pagos recibidos</span></div>
           <div className="card-body" style={{ padding: 0 }}>
-            {d && d.recentPayments.length > 0 ? (
-              d.recentPayments.map((p, i) => (
-                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.6rem 1rem',
-                  borderBottom: i < d.recentPayments.length - 1 ? '1px solid var(--gray-100)' : 'none' }}>
-                  <div>
-                    <div className="font-semibold text-sm">{p.associateName}</div>
-                    <div className="text-xs text-muted" style={{ fontFamily: 'monospace' }}>
-                      {p.creditNumber} · {p.paymentMethod}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="font-semibold text-sm" style={{ color: 'var(--success-600)' }}>{fmt(p.amount)}</div>
-                    <div className="text-xs text-muted">{fmtDate(p.paymentDate)}</div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--gray-400)' }}>Sin pagos recientes</div>
-            )}
+            {data.recentPayments.length > 0 ? data.recentPayments.map((payment) => (
+              <div key={payment.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.65rem 1rem', borderBottom: '1px solid var(--gray-100)' }}>
+                <div><div className="font-semibold text-sm">{payment.associateName}</div><div className="text-xs text-muted">{payment.creditNumber} · {payment.paymentMethod}</div></div>
+                <div style={{ textAlign: 'right' }}><div className="font-semibold text-sm" style={{ color: 'var(--success-600)' }}>{fmt(payment.amount)}</div><div className="text-xs text-muted">{fmtDate(payment.paymentDate)}</div></div>
+              </div>
+            )) : <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--gray-400)' }}>Sin pagos recientes</div>}
           </div>
         </div>
       </div>
 
-      {/* Tabla de créditos con cuotas vencidas */}
-      <div className="card">
-        <div className="card-header">
-          <span className="card-title">⚠️ Créditos con Cuotas Vencidas ({d?.overdueList.length || 0})</span>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+        <div className="card">
+          <div className="card-header"><span className="card-title">Provisiones vigentes</span></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            {data.provisions.length > 0 ? data.provisions.slice(0, 8).map((provision) => (
+              <div key={provision.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.65rem 1rem', borderBottom: '1px solid var(--gray-100)' }}>
+                <div><div className="font-semibold text-sm">{provision.associateName}</div><div className="text-xs text-muted">{provision.creditNumber} · Categoria {provision.riskCategory} · {provision.daysOverdue} dias</div></div>
+                <div style={{ textAlign: 'right' }}><div className="font-semibold text-sm" style={{ color: 'var(--danger-600)' }}>{fmt(provision.provisionAmount)}</div><div className="text-xs text-muted">{provision.provisionRate}% de {fmt(provision.outstandingBalance)}</div></div>
+              </div>
+            )) : <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--gray-400)' }}>Sin provisiones calculadas</div>}
+          </div>
         </div>
+
+        <div className="card">
+          <div className="card-header"><span className="card-title">Acuerdos de pago activos</span></div>
+          <div className="card-body" style={{ padding: 0 }}>
+            {data.agreements.length > 0 ? data.agreements.map((agreement) => (
+              <div key={agreement.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.65rem 1rem', borderBottom: '1px solid var(--gray-100)' }}>
+                <div><div className="font-semibold text-sm">{agreement.associateName}</div><div className="text-xs text-muted">{agreement.agreementNumber} · {agreement.creditNumber} · {agreement.installments} cuotas</div></div>
+                <div style={{ textAlign: 'right' }}><div className="font-semibold text-sm">{fmt(agreement.installmentAmount)}</div><div className="text-xs text-muted">{agreement.nextDueDate ? fmtDate(agreement.nextDueDate) : 'Sin cuota pendiente'}</div></div>
+              </div>
+            )) : <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--gray-400)' }}>Sin acuerdos activos</div>}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header"><span className="card-title">Creditos con cuotas vencidas ({data.overdueList.length})</span></div>
         <div className="table-container">
-          {d && d.overdueList.length > 0 ? (
+          {data.overdueList.length > 0 ? (
             <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Asociado</th>
-                  <th>N° Crédito</th>
-                  <th>Cuotas Vencidas</th>
-                  <th style={{ textAlign: 'right' }}>Monto Vencido</th>
-                  <th>Días Mora</th>
-                  <th>Vencimiento</th>
-                  <th>Contacto</th>
-                  <th style={{ textAlign: 'right' }}>Acciones</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Asociado</th><th>No. Credito</th><th>Cuotas</th><th className="text-right">Monto vencido</th><th>Dias mora</th><th>Contacto</th><th className="text-right">Acciones</th></tr></thead>
               <tbody>
-                {d.overdueList.map((item) => {
-                  const severity = item.daysOverdue > 90 ? 'var(--danger-700)' : item.daysOverdue > 60 ? 'var(--danger-500)' : item.daysOverdue > 30 ? '#ea580c' : 'var(--warning-600)';
-                  return (
-                    <tr key={`${item.creditId}`}>
-                      <td>
-                        <div className="font-semibold text-sm">{item.name}</div>
-                        <div className="text-xs text-muted">{item.document}</div>
-                      </td>
-                      <td><span style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{item.creditNumber}</span></td>
-                      <td>
-                        <span className="badge badge-danger" style={{ fontSize: '0.7rem' }}>
-                          {item.overdueInstallments} cuota{item.overdueInstallments > 1 ? 's' : ''}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span className="font-semibold text-sm" style={{ color: 'var(--danger-500)' }}>{fmt(item.totalOverdue)}</span>
-                      </td>
-                      <td>
-                        <span className="font-semibold text-sm" style={{ color: severity, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Clock size={12} /> {item.daysOverdue} días
-                        </span>
-                      </td>
-                      <td className="text-sm text-muted">{fmtDate(item.oldestDueDate)}</td>
-                      <td>
-                        {item.phone && (
-                          <a href={`tel:${item.phone}`} className="text-sm" style={{ color: 'var(--primary-500)', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                            <Phone size={12} /> {item.phone}
-                          </a>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/creditos/${item.creditId}`)}>
-                          <Eye size={14} /> Ver Crédito
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {data.overdueList.map((item) => (
+                  <tr key={item.creditId}>
+                    <td><div className="font-semibold text-sm">{item.name}</div><div className="text-xs text-muted">{item.document}</div></td>
+                    <td><span style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{item.creditNumber}</span></td>
+                    <td><span className="badge badge-danger">{item.overdueInstallments}</span></td>
+                    <td className="text-right"><span className="font-semibold text-sm" style={{ color: 'var(--danger-500)' }}>{fmt(item.totalOverdue)}</span></td>
+                    <td><span className="font-semibold text-sm" style={{ color: 'var(--danger-600)', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} /> {item.daysOverdue}</span></td>
+                    <td>{item.phone && <a href={`tel:${item.phone}`} className="text-sm" style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><Phone size={12} /> {item.phone}</a>}</td>
+                    <td className="text-right">
+                      <button className="btn btn-ghost btn-sm" onClick={() => router.push(`/creditos/${item.creditId}`)}><Eye size={14} /> Ver</button>
+                      <button className="btn btn-secondary btn-sm" onClick={() => openAgreement(item.creditId, item.totalOverdue)} style={{ marginLeft: '0.35rem' }}><Plus size={14} /> Acuerdo</button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           ) : (
-            <div className="empty-state">
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎉</div>
-              <div className="empty-state-title">Sin créditos vencidos</div>
-              <div className="empty-state-text">La cartera está al día, ¡excelente!</div>
-            </div>
+            <div className="empty-state"><div className="empty-state-title">Sin creditos vencidos</div><div className="empty-state-text">La cartera esta al dia.</div></div>
           )}
         </div>
       </div>
+
+      {showAgreement && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="card" style={{ padding: '1.5rem', width: '440px', maxWidth: '90vw' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>Nuevo acuerdo de pago</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowAgreement(false)}><XCircle size={16} /></button>
+            </div>
+            <div className="form-group"><label className="form-label">Monto acordado</label><input className="form-input" type="number" min="1" value={agreementAmount} onChange={(event) => setAgreementAmount(event.target.value)} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group"><label className="form-label">Pago inicial</label><input className="form-input" type="number" min="0" value={initialPayment} onChange={(event) => setInitialPayment(event.target.value)} /></div>
+              <div className="form-group"><label className="form-label">Cuotas</label><input className="form-input" type="number" min="1" max="60" value={installments} onChange={(event) => setInstallments(event.target.value)} /></div>
+            </div>
+            <div className="form-group"><label className="form-label">Fecha de inicio</label><input className="form-input" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></div>
+            <div className="form-group"><label className="form-label">Motivo</label><textarea className="form-input" rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></div>
+            <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" onClick={() => setShowAgreement(false)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={createAgreement} disabled={actionLoading || !agreementAmount || !reason}>Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
