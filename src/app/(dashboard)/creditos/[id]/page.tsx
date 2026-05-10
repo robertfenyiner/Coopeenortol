@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle, XCircle, Banknote, DollarSign, Calendar, TrendingDown } from 'lucide-react';
+import { ArrowLeft, CheckCircle, XCircle, Banknote, DollarSign, Calendar, TrendingDown, ShieldCheck, Users, RefreshCw, UserPlus, Trash2, Search } from 'lucide-react';
 
 interface CreditDetail {
   id: string;
@@ -43,6 +43,26 @@ interface CreditDetail {
     principalPaid: string; interestPaid: string; paymentMethod: string;
     reference: string | null; paymentDate: string;
   }>;
+  coDebtors: Array<{
+    id: string; relationship: string | null; monthlyIncome: string | null;
+    associate: {
+      associateNumber: string;
+      person: { firstName: string; lastName: string; secondLastName: string | null; documentNumber: string; monthlyIncome: string | null };
+    };
+  }>;
+  scoreSnapshots: Array<{
+    id: string; score: number; riskLevel: string; recommendation: string; debtRatio: string;
+    savingsCoveragePct: string; activeCreditsCount: number; overdueInstallmentsCount: number;
+    monthlyIncome: string; requestedAmount: string; evaluatedAt: string;
+  }>;
+  refinancedFrom: Array<{ newCredit: { id: string; creditNumber: string; status: string } }>;
+  refinancedInto: Array<{ originalCredit: { id: string; creditNumber: string; status: string } }>;
+}
+
+interface AssociateOption {
+  id: string;
+  associateNumber: string;
+  person: { firstName: string; lastName: string; secondLastName: string | null; documentNumber: string; monthlyIncome: string | null };
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -66,7 +86,7 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
   const router = useRouter();
   const [credit, setCredit] = useState<CreditDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'info' | 'amortization' | 'payments'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'evaluation' | 'amortization' | 'payments'>('info');
   const [actionLoading, setActionLoading] = useState(false);
 
   // Modals
@@ -78,6 +98,17 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [paymentReference, setPaymentReference] = useState('');
+  const [showCoDebtor, setShowCoDebtor] = useState(false);
+  const [showRefinance, setShowRefinance] = useState(false);
+  const [coDebtorSearch, setCoDebtorSearch] = useState('');
+  const [coDebtorResults, setCoDebtorResults] = useState<AssociateOption[]>([]);
+  const [selectedCoDebtor, setSelectedCoDebtor] = useState<AssociateOption | null>(null);
+  const [coDebtorIncome, setCoDebtorIncome] = useState('');
+  const [coDebtorRelationship, setCoDebtorRelationship] = useState('');
+  const [newAmount, setNewAmount] = useState('');
+  const [newRate, setNewRate] = useState('');
+  const [newTerm, setNewTerm] = useState('');
+  const [refinanceReason, setRefinanceReason] = useState('');
 
   const inputStyle: React.CSSProperties = { width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--gray-200)' };
   const fmt = (v: string | number) => `$ ${Number(v).toLocaleString('es-CO')}`;
@@ -95,6 +126,18 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
 
   useEffect(() => { fetchCredit(); }, [fetchCredit]);
 
+  const searchCoDebtors = useCallback(async () => {
+    if (coDebtorSearch.length < 2) { setCoDebtorResults([]); return; }
+    const res = await fetch(`/api/asociados?search=${encodeURIComponent(coDebtorSearch)}&status=ACTIVO&pageSize=8`);
+    const json = await res.json();
+    if (json.success) setCoDebtorResults(json.data.data);
+  }, [coDebtorSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(searchCoDebtors, 300);
+    return () => clearTimeout(timer);
+  }, [searchCoDebtors]);
+
   const handleAction = async (action: string, body: Record<string, unknown> = {}) => {
     setActionLoading(true);
     try {
@@ -105,11 +148,75 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
       });
       const json = await res.json();
       if (json.success) {
-        setShowApprove(false); setShowReject(false);
+        setShowApprove(false); setShowReject(false); setShowRefinance(false);
         fetchCredit();
       } else {
         alert(json.error || 'Error');
       }
+    } catch (e) { console.error(e); alert('Error de conexión'); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleScore = async () => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/creditos/${id}/scoring`, { method: 'POST' });
+      const json = await res.json();
+      if (json.success) fetchCredit();
+      else alert(json.error || 'Error al evaluar scoring');
+    } catch (e) { console.error(e); alert('Error de conexión'); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleAddCoDebtor = async () => {
+    if (!selectedCoDebtor) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/creditos/${id}/codeudores`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          associateId: selectedCoDebtor.id,
+          relationship: coDebtorRelationship || null,
+          monthlyIncome: coDebtorIncome ? parseFloat(coDebtorIncome) : null,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setShowCoDebtor(false); setSelectedCoDebtor(null); setCoDebtorSearch(''); setCoDebtorIncome(''); setCoDebtorRelationship('');
+        fetchCredit();
+      } else alert(json.error || 'Error al agregar codeudor');
+    } catch (e) { console.error(e); alert('Error de conexión'); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleRemoveCoDebtor = async (coDebtorId: string) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/creditos/${id}/codeudores/${coDebtorId}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) fetchCredit();
+      else alert(json.error || 'Error al retirar codeudor');
+    } catch (e) { console.error(e); alert('Error de conexión'); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleRefinance = async () => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/creditos/${id}/refinanciar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newAmount: parseFloat(newAmount),
+          interestRate: parseFloat(newRate),
+          termMonths: parseInt(newTerm, 10),
+          reason: refinanceReason,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) router.push(`/creditos/${json.data.id}`);
+      else alert(json.error || 'Error al refinanciar');
     } catch (e) { console.error(e); alert('Error de conexión'); }
     finally { setActionLoading(false); }
   };
@@ -143,6 +250,9 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
   const canApprove = ['SOLICITUD', 'EN_EVALUACION'].includes(credit.status);
   const canDisburse = credit.status === 'APROBADO';
   const canPay = ['VIGENTE', 'VENCIDO'].includes(credit.status);
+  const canAdvancedEdit = ['SOLICITUD', 'EN_EVALUACION', 'APROBADO'].includes(credit.status);
+  const canRefinance = ['VIGENTE', 'VENCIDO'].includes(credit.status) && Number(credit.outstandingBalance) > 0;
+  const latestScore = credit.scoreSnapshots[0];
 
   return (
     <div>
@@ -182,6 +292,16 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
               <DollarSign size={14} /> Registrar Pago
             </button>
           )}
+          {canRefinance && (
+            <button className="btn btn-secondary btn-sm" onClick={() => {
+              setNewAmount(String(credit.outstandingBalance));
+              setNewRate(String(credit.interestRate));
+              setNewTerm(String(credit.termMonths));
+              setShowRefinance(true);
+            }}>
+              <RefreshCw size={14} /> Refinanciar
+            </button>
+          )}
         </div>
       </div>
 
@@ -208,7 +328,7 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
       {/* Tabs */}
       <div className="card">
         <div style={{ display: 'flex', borderBottom: '1px solid var(--gray-200)', padding: '0 1rem' }}>
-          {([['info', 'Información'], ['amortization', 'Tabla de Amortización'], ['payments', 'Pagos Realizados']] as const).map(([key, label]) => (
+          {([['info', 'Información'], ['evaluation', 'Evaluación'], ['amortization', 'Tabla de Amortización'], ['payments', 'Pagos Realizados']] as const).map(([key, label]) => (
             <button key={key} onClick={() => setActiveTab(key)}
               style={{ padding: '0.75rem 1.25rem', background: 'none', border: 'none', cursor: 'pointer', borderBottom: activeTab === key ? '2px solid var(--primary-500)' : '2px solid transparent',
                 color: activeTab === key ? 'var(--primary-600)' : 'var(--gray-500)', fontWeight: activeTab === key ? 600 : 400, fontSize: '0.875rem' }}>
@@ -261,6 +381,62 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {activeTab === 'evaluation' && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600 }}>Scoring de riesgo</h4>
+                  <button className="btn btn-secondary btn-sm" onClick={handleScore} disabled={actionLoading}><ShieldCheck size={14} /> Evaluar</button>
+                </div>
+                {latestScore ? (
+                  <div className="card" style={{ padding: '1rem', border: '1px solid var(--gray-100)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+                      <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: latestScore.riskLevel === 'BAJO' ? 'var(--success-50)' : latestScore.riskLevel === 'MEDIO' ? 'var(--warning-50)' : 'var(--danger-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', fontWeight: 800 }}>
+                        {latestScore.score}
+                      </div>
+                      <div>
+                        <div className="font-semibold">{latestScore.recommendation}</div>
+                        <div className="text-sm text-muted">Riesgo {latestScore.riskLevel} · {fmtDate(latestScore.evaluatedAt)}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', fontSize: '0.85rem' }}>
+                      <div><span className="text-muted">Endeudamiento:</span> {Number(latestScore.debtRatio).toFixed(2)}%</div>
+                      <div><span className="text-muted">Cobertura:</span> {Number(latestScore.savingsCoveragePct).toFixed(2)}%</div>
+                      <div><span className="text-muted">Créditos activos:</span> {latestScore.activeCreditsCount}</div>
+                      <div><span className="text-muted">Cuotas vencidas:</span> {latestScore.overdueInstallmentsCount}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="empty-state"><ShieldCheck className="empty-state-icon" /><div className="empty-state-text">Sin evaluación de scoring</div></div>
+                )}
+              </div>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600 }}>Codeudores</h4>
+                  {canAdvancedEdit && <button className="btn btn-secondary btn-sm" onClick={() => setShowCoDebtor(true)}><UserPlus size={14} /> Agregar</button>}
+                </div>
+                {credit.coDebtors.length === 0 ? (
+                  <div className="empty-state"><Users className="empty-state-icon" /><div className="empty-state-text">Sin codeudores activos</div></div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {credit.coDebtors.map((coDebtor) => (
+                      <div key={coDebtor.id} className="card" style={{ padding: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--gray-100)' }}>
+                        <div>
+                          <div className="font-semibold text-sm">{coDebtor.associate.person.firstName} {coDebtor.associate.person.lastName}</div>
+                          <div className="text-xs text-muted">{coDebtor.associate.associateNumber} · {coDebtor.associate.person.documentNumber}</div>
+                          <div className="text-xs text-muted">Ingreso: {fmt(coDebtor.monthlyIncome || coDebtor.associate.person.monthlyIncome || 0)}</div>
+                        </div>
+                        {canAdvancedEdit && (
+                          <button className="btn btn-ghost btn-sm" onClick={() => handleRemoveCoDebtor(coDebtor.id)} title="Retirar codeudor"><Trash2 size={14} /></button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -410,6 +586,81 @@ export default function CreditoDetallePage({ params }: { params: Promise<{ id: s
               <button className="btn btn-ghost" onClick={() => setShowPayment(false)}>Cancelar</button>
               <button className="btn btn-primary" disabled={actionLoading || !paymentAmount} onClick={handlePayment}>
                 {actionLoading ? 'Registrando...' : 'Registrar Pago'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCoDebtor && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="card" style={{ padding: '1.5rem', width: '460px', maxWidth: '90vw' }}>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 600 }}>Agregar Codeudor</h3>
+            {selectedCoDebtor ? (
+              <div style={{ padding: '0.75rem', background: 'var(--primary-50)', borderRadius: '8px', marginBottom: '1rem' }}>
+                <div className="font-semibold">{selectedCoDebtor.person.firstName} {selectedCoDebtor.person.lastName}</div>
+                <div className="text-xs text-muted">{selectedCoDebtor.associateNumber} · {selectedCoDebtor.person.documentNumber}</div>
+              </div>
+            ) : (
+              <div className="form-group" style={{ position: 'relative' }}>
+                <label className="form-label">Buscar asociado codeudor</label>
+                <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '2.25rem', color: 'var(--gray-400)' }} />
+                <input style={{ ...inputStyle, paddingLeft: '2.25rem' }} value={coDebtorSearch} onChange={(e) => setCoDebtorSearch(e.target.value)} />
+                {coDebtorResults.length > 0 && (
+                  <div style={{ marginTop: '0.25rem', border: '1px solid var(--gray-200)', borderRadius: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                    {coDebtorResults.map((associate) => (
+                      <button key={associate.id} type="button" onClick={() => { setSelectedCoDebtor(associate); setCoDebtorIncome(String(associate.person.monthlyIncome || '')); setCoDebtorResults([]); }}
+                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '0.55rem 0.75rem', border: 'none', borderBottom: '1px solid var(--gray-50)', background: 'white', cursor: 'pointer' }}>
+                        <div className="font-semibold text-sm">{associate.person.firstName} {associate.person.lastName}</div>
+                        <div className="text-xs text-muted">{associate.associateNumber} · {associate.person.documentNumber}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Parentesco / Relación</label>
+              <input style={inputStyle} value={coDebtorRelationship} onChange={(e) => setCoDebtorRelationship(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Ingreso mensual validado</label>
+              <input type="number" style={inputStyle} value={coDebtorIncome} onChange={(e) => setCoDebtorIncome(e.target.value)} min="0" />
+            </div>
+            <div className="flex gap-2" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button className="btn btn-ghost" onClick={() => setShowCoDebtor(false)}>Cancelar</button>
+              <button className="btn btn-primary" disabled={actionLoading || !selectedCoDebtor} onClick={handleAddCoDebtor}>Agregar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRefinance && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="card" style={{ padding: '1.5rem', width: '440px', maxWidth: '90vw' }}>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 600 }}>Refinanciar Crédito</h3>
+            <div className="form-group">
+              <label className="form-label">Nuevo monto *</label>
+              <input type="number" style={inputStyle} value={newAmount} onChange={(e) => setNewAmount(e.target.value)} min={Number(credit.outstandingBalance)} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Nueva tasa mensual (%) *</label>
+                <input type="number" style={inputStyle} value={newRate} onChange={(e) => setNewRate(e.target.value)} min="0" step="0.01" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Nuevo plazo *</label>
+                <input type="number" style={inputStyle} value={newTerm} onChange={(e) => setNewTerm(e.target.value)} min="1" />
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Motivo *</label>
+              <textarea style={{ ...inputStyle, minHeight: '80px' }} value={refinanceReason} onChange={(e) => setRefinanceReason(e.target.value)} />
+            </div>
+            <div className="flex gap-2" style={{ justifyContent: 'flex-end', marginTop: '1rem' }}>
+              <button className="btn btn-ghost" onClick={() => setShowRefinance(false)}>Cancelar</button>
+              <button className="btn btn-primary" disabled={actionLoading || !newAmount || !newRate || !newTerm || !refinanceReason} onClick={handleRefinance}>
+                {actionLoading ? 'Refinanciando...' : 'Crear refinanciación'}
               </button>
             </div>
           </div>

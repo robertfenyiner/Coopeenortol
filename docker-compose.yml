@@ -1,3 +1,8 @@
+# ============================================================
+# CoopManager - Docker Compose (Development)
+# ============================================================
+# Usage: docker compose up -d
+
 services:
   db:
     image: postgres:16-alpine
@@ -17,6 +22,44 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: coopmanager_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: "postgresql://coopmanager:coopmanager_dev@db:5432/coopmanager_db?schema=public"
+      AUTH_SECRET: "local-dev-change-me-coopmanager"
+      NEXTAUTH_SECRET: "local-dev-change-me-coopmanager"
+      NEXTAUTH_URL: "http://localhost:3000"
+      STORAGE_PROVIDER: "local"
+      NODE_ENV: "production"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - coopmanager_uploads:/app/uploads
+
+  # Run migrations after app is up
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: coopmanager_migrate
+    environment:
+      DATABASE_URL: "postgresql://coopmanager:coopmanager_dev@db:5432/coopmanager_db?schema=public"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: npx prisma migrate deploy
+    restart: "no"
+
 volumes:
   coopmanager_pgdata:
+    driver: local
+  coopmanager_uploads:
     driver: local

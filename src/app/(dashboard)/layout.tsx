@@ -28,6 +28,9 @@ import {
   BookOpenCheck,
   UserCircle,
   CloudCog,
+  HeartHandshake,
+  Vote,
+  Building2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { SessionProvider } from 'next-auth/react';
@@ -52,6 +55,9 @@ const iconMap: Record<string, React.ElementType> = {
   BookOpenCheck,
   UserCircle,
   CloudCog,
+  HeartHandshake,
+  Vote,
+  Building2,
 };
 
 interface NavItemConfig {
@@ -157,7 +163,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     contabilidad: 'Contabilidad',
     'portal-asociado': 'Mi Portal',
     integraciones: 'Integraciones',
+    'fondos-sociales': 'Fondos Sociales',
     cartera: 'Cartera',
+    asambleas: 'Asambleas',
+    tesoreria: 'Tesorería',
+    cuentas: 'Cuentas Bancarias',
+    movimientos: 'Movimientos',
+    conciliacion: 'Conciliación',
+    cajas: 'Cajas',
     reportes: 'Reportes',
     perfil: 'Mi Perfil',
     auditoria: 'Auditoría',
